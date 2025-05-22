@@ -3,7 +3,6 @@ from typing import Annotated, Literal, Optional
 
 from cyclopts import App, Group, Parameter
 
-# from blueno.blueprint import create_pipeline, job_registry
 from blueno import create_pipeline, job_registry
 from blueno.display import task_display
 
@@ -122,8 +121,8 @@ def run_remote(
 
     Args:
         project_dir (str): Path to the blueprints
-        workspace_name (str): The workspace id to use
-        lakehouse_name (str): The lakehouse id to use
+        workspace_id (str): The workspace id to use
+        lakehouse_id (str): The lakehouse id to use
         notebook_id (str): The notebook id to use
         concurrency (int): Number of concurrent tasks to run
         v_cores (int): Number of vCores to use

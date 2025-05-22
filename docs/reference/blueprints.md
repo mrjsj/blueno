@@ -1,6 +1,8 @@
-# Blueprints
+# Orchestration
 
-Blueprints is a way to declaratively write your ETL.
+Blueprints and tasks is a way to declaratively write your ETL.
 
-::: blueno.blueprint
- 
+::: blueno.orchestration.blueprint
+
+
+::: blueno.orchestration.task

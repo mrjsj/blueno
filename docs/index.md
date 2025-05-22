@@ -41,7 +41,7 @@ pip install "blueno[azure]"
 ### Local development first
 Aim to provide a local development environment. This means you can develop, run code and store data locally as part of your development cycle. You can also read and write to Azure Data Lake or Microsoft Fabric lakehouses.
 
-### Remote code execution (Fabric only)
+### Remote code execution
 While local development is favored, sometimes we need run our data pipelines a real setting. The library lets you run code directly in Microsoft Fabric.
 
 ### ETL helper functions
