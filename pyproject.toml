@@ -46,7 +46,7 @@ line-length = 100
 include = ["src/**/*.py", "tests/**/*.py"]
 
 [tool.ruff.lint]
-extend-select = ["Q001", "I001"]
+extend-select = ["Q001", "I001", "G004"]
 
 [tool.pytest.ini_options]
 pythonpath = [

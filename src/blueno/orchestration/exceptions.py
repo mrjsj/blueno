@@ -1,3 +1,9 @@
+class BluenoUserError(Exception):
+    """An exception for user errors."""
+
+    pass
+
+
 class GenericBluenoError(Exception):
     """Catch-all exception for generic Blueno orchestration errors."""
 

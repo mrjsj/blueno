@@ -8,8 +8,8 @@ from blueno import (
     job_registry,
 )
 from blueno.orchestration.exceptions import (
+    BluenoUserError,
     DuplicateJobError,
-    GenericBluenoError,
     InvalidJobError,
     JobNotFoundError,
 )
@@ -70,7 +70,7 @@ def test_blueprint_duplicate_name_raises():
 
 
 def test_blueprint_schema_type_check():
-    with pytest.raises(GenericBluenoError):
+    with pytest.raises(BluenoUserError):
 
         @blueprint(schema={"not": "a polars schema"})
         def func():
@@ -78,7 +78,7 @@ def test_blueprint_schema_type_check():
 
 
 def test_blueprint_write_method_check():
-    with pytest.raises(GenericBluenoError):
+    with pytest.raises(BluenoUserError):
 
         @blueprint(write_mode="invalid")
         def func():
@@ -86,7 +86,7 @@ def test_blueprint_write_method_check():
 
 
 def test_blueprint_format_check():
-    with pytest.raises(GenericBluenoError):
+    with pytest.raises(BluenoUserError):
 
         @blueprint(format="csv")
         def func():

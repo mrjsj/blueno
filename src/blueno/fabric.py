@@ -131,8 +131,9 @@ def get_request(endpoint: str, content_only: bool = True) -> requests.Response |
     if content_only:
         if response.status_code >= 400:
             logger.error(
-                f"Request failed with status code {response.status_code}: {response.content}"
+                "request failed with status code %s: %s", response.status_code, response.json()
             )
+
         response.raise_for_status()
         return response.json()
 
@@ -169,8 +170,9 @@ def post_request(
     if content_only:
         if response.status_code >= 400:
             logger.error(
-                f"Request failed with status code {response.status_code}: {response.json()}"
+                "request failed with status code %s: %s", response.status_code, response.json()
             )
+
         response.raise_for_status()
         return response.json()
 
@@ -207,8 +209,9 @@ def patch_request(
     if content_only:
         if response.status_code >= 400:
             logger.error(
-                f"Request failed with status code {response.status_code}: {response.json()}"
+                "request failed with status code %s: %s", response.status_code, response.json()
             )
+
         response.raise_for_status()
         return response.json()
 
@@ -237,89 +240,91 @@ def delete_request(endpoint: str) -> requests.Response:
 
     response = requests.delete(f"{base_url}/{endpoint}", headers=headers)
     if response.status_code >= 400:
-        logger.error(f"Request failed with status code {response.status_code}: {response.json()}")
-    response.raise_for_status()
-    return response
-
-
-def run_pipeline(
-    workspace_id: str,
-    pipeline_id: str,
-    parameters: dict[str, Any] | None = None,
-    poll_interval: float = 5.0,
-    timeout: float = 5 * 60.0,
-) -> requests.Response:
-    """
-    Runs a notebook in the specified workspace.
-
-    Args:
-        workspace_id (str): The ID of the workspace where the pipeline is located.
-        pipeline_id (str): The ID of the pipeline to run.
-        parameters (dict[str, Any], optional): Parameters to pass to the pipeline. Defaults to None.
-        poll_interval (float): The interval in seconds to poll the pipeline status. Defaults to 5.0.
-        timeout (float): The maximum time in seconds to wait for the pipeline to complete. Defaults to 300.0.
-
-    Returns:
-        The response object from the POST request.
-
-    Raises:
-        requests.exceptions.RequestException: If the HTTP request fails or returns an error.
-    """
-    base_url = "https://api.fabric.microsoft.com/v1"
-    token = get_fabric_bearer_token()
-    headers = {"Authorization": f"Bearer {token}"}
-
-    data = {
-        "executionData": {
-            "parameters": parameters or {},
-        }
-    }
-    logger.info(
-        f"Running pipeline {pipeline_id} in workspace {workspace_id} with parameters: {parameters}"
-    )
-
-    response = requests.post(
-        f"{base_url}/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances?jobType=Pipeline",
-        headers=headers,
-        json=data,
-    )
-    if response.status_code >= 400:
-        logger.error(f"Request failed with status code {response.status_code}: {response.json()}")
-    response.raise_for_status()
-
-    url = response.headers.get("Location")
-
-    time_elapsed = 0
-    while True:
-        time.sleep(5)  # Wait for 5 seconds before checking the status
-        response = requests.get(url, headers=headers)
-
-        if response.status_code >= 400:
-            logger.error(
-                f"Request failed with status code {response.status_code}: {response.json()}"
-            )
-            break
-        response.raise_for_status()
-
-        if response.json().get("status") in ("Completed", "Failed"):
-            logger.info(
-                f"Pipeline {pipeline_id} in workspace {workspace_id} completed successfully."
-            )
-            break
-
-        time_elapsed += poll_interval
-        if time_elapsed >= timeout:
-            logger.warning(
-                f"Polling the pipeline status of {pipeline_id} in workspace {workspace_id} exceeded the timeout limit after {timeout} seconds. This does not necessarily mean the pipeline failed."
-            )
-            break
-
-        # Else we should be InProgress
-        logger.info(
-            f"Pipeline {pipeline_id} in workspace {workspace_id} is still running. Status: {response.json().get('status')}"
+        logger.error(
+            "request failed with status code %s: %s", response.status_code, response.json()
         )
-
+    response.raise_for_status()
     return response
+
+
+# def run_pipeline(
+#     workspace_id: str,
+#     pipeline_id: str,
+#     parameters: dict[str, Any] | None = None,
+#     poll_interval: float = 5.0,
+#     timeout: float = 5 * 60.0,
+# ) -> requests.Response:
+#     """
+#     Runs a notebook in the specified workspace.
+
+#     Args:
+#         workspace_id (str): The ID of the workspace where the pipeline is located.
+#         pipeline_id (str): The ID of the pipeline to run.
+#         parameters (dict[str, Any], optional): Parameters to pass to the pipeline. Defaults to None.
+#         poll_interval (float): The interval in seconds to poll the pipeline status. Defaults to 5.0.
+#         timeout (float): The maximum time in seconds to wait for the pipeline to complete. Defaults to 300.0.
+
+#     Returns:
+#         The response object from the POST request.
+
+#     Raises:
+#         requests.exceptions.RequestException: If the HTTP request fails or returns an error.
+#     """
+#     base_url = "https://api.fabric.microsoft.com/v1"
+#     token = get_fabric_bearer_token()
+#     headers = {"Authorization": f"Bearer {token}"}
+
+#     data = {
+#         "executionData": {
+#             "parameters": parameters or {},
+#         }
+#     }
+#     logger.info(
+#         f"Running pipeline {pipeline_id} in workspace {workspace_id} with parameters: {parameters}"
+#     )
+
+#     response = requests.post(
+#         f"{base_url}/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances?jobType=Pipeline",
+#         headers=headers,
+#         json=data,
+#     )
+#     if response.status_code >= 400:
+#         logger.error(f"Request failed with status code {response.status_code}: {response.json()}")
+#     response.raise_for_status()
+
+#     url = response.headers.get("Location")
+
+#     time_elapsed = 0
+#     while True:
+#         time.sleep(5)  # Wait for 5 seconds before checking the status
+#         response = requests.get(url, headers=headers)
+
+#         if response.status_code >= 400:
+#             logger.error(
+#                 f"Request failed with status code {response.status_code}: {response.json()}"
+#             )
+#             break
+#         response.raise_for_status()
+
+#         if response.json().get("status") in ("Completed", "Failed"):
+#             logger.info(
+#                 f"Pipeline {pipeline_id} in workspace {workspace_id} completed successfully."
+#             )
+#             break
+
+#         time_elapsed += poll_interval
+#         if time_elapsed >= timeout:
+#             logger.warning(
+#                 f"Polling the pipeline status of {pipeline_id} in workspace {workspace_id} exceeded the timeout limit after {timeout} seconds. This does not necessarily mean the pipeline failed."
+#             )
+#             break
+
+#         # Else we should be InProgress
+#         logger.info(
+#             f"pipeline {pipeline_id} in workspace {workspace_id} is still running. Status: {response.json().get('status')}"
+#         )
+
+#     return response
 
 
 def run_notebook(
@@ -353,7 +358,10 @@ def run_notebook(
         "executionData": execution_data or {},
     }
     logger.info(
-        f"Running notebook {notebook_id} in workspace {workspace_id} with parameters: {execution_data}"
+        "running notebook %s in workspace %s with parameters: %s",
+        notebook_id,
+        workspace_id,
+        execution_data,
     )
 
     response = requests.post(
@@ -362,7 +370,9 @@ def run_notebook(
         json=data,
     )
     if response.status_code >= 400:
-        logger.error(f"Request failed with status code {response.status_code}: {response.json()}")
+        logger.error(
+            "request failed with status code %s: %s", response.status_code, response.json()
+        )
     response.raise_for_status()
 
     url = response.headers.get("Location")
@@ -374,34 +384,48 @@ def run_notebook(
 
         if response.status_code >= 400:
             logger.error(
-                f"Request failed with status code {response.status_code}: {response.json()}"
+                "polling notebook %s in %s failed with status code %s: %s",
+                notebook_id,
+                workspace_id,
+                response.status_code,
+                response.json(),
             )
             break
         response.raise_for_status()
 
-        if response.json().get("status") == "Completed":
+        data = response.json()
+
+        if data.get("status") == "Completed":
             logger.info(
-                f"Notebook {notebook_id} in workspace {workspace_id} completed successfully."
+                "notebook %s in workspace %s succeeded with output: %s",
+                notebook_id,
+                workspace_id,
+                data,
             )
             break
 
-        if response.json().get("status") == "Failed":
-            logger.info(f"Notebook {notebook_id} in workspace {workspace_id} failed.")
+        if data.get("status") == "Failed":
             logger.error(
-                f"Notebook {notebook_id} in workspace {workspace_id} failed with error: {response.json()}"
+                "notebook %s in workspace %s failed with error: %s", notebook_id, workspace_id, data
             )
             break
 
         time_elapsed += poll_interval
         if time_elapsed >= timeout:
             logger.warning(
-                f"Polling the notebook status of {notebook_id} in workspace {workspace_id} exceeded the timeout limit after {timeout} seconds. This does not necessarily mean the pipeline failed."
+                "polling the notebook status of %s in workspace %s exceeded the timeout limit after %s seconds - this does not necessarily mean the pipeline failed.",
+                notebook_id,
+                workspace_id,
+                timeout,
             )
             break
 
         # Else we should be InProgress
         logger.info(
-            f"Notebook {notebook_id} in workspace {workspace_id} is still running. Status: {response.json().get('status')}"
+            "notebook %s in workspace %s is still running with status: %s",
+            notebook_id,
+            workspace_id,
+            response.json().get("status"),
         )
 
     return response
@@ -425,13 +449,13 @@ def upload_folder_contents(
     # Check if AzCopy is installed
     if not shutil.which("azcopy"):
         logger.error(
-            "AzCopy is not installed. Please install it from https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10"
+            "azcopy is not installed - install it from https://learn.microsoft.com/en-us/azure/storage/common/storage-use-azcopy-v10"
         )
         sys.exit(1)
 
     # Check if the source folder exists
     if not os.path.exists(source_folder):
-        logger.error(f"Source folder {source_folder} does not exist.")
+        logger.error("source folder %s does not exist", source_folder)
         sys.exit(1)
 
     cmds = [
@@ -451,13 +475,15 @@ def upload_folder_contents(
         "--trusted-microsoft-suffixes=onelake.blob.fabric.microsoft.com",
         "--log-level=INFO",
     ]
-    logger.info(f"Uploading {source_folder} to {destination_folder} in OneLake using AzCopy")
+    logger.info("uploading %s to %s to OneLake", source_folder, destination_folder)
 
     # Run the AzCopy command
     try:
         cmd = shlex.join(cmds)
         result = subprocess.run(cmd, shell=True, check=True, capture_output=True)
-        logger.info(f"AzCopy command output: {result.stdout.decode()}")
+        logger.debug("azcopy copy succeeded with stdout %s", result.stdout.decode())
     except subprocess.CalledProcessError as e:
-        logger.error(f"AzCopy command failed with error:\n{e.stderr.decode()}\n{e.stdout.decode()}")
+        logger.error(
+            "azcopy copy failed with error:\n%s\n%s}", e.stderr.decode(), e.stdout.decode()
+        )
         sys.exit(1)

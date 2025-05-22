@@ -26,7 +26,6 @@ def task(
     def decorator(func: types.FunctionType):
         _name = name or func.__name__
 
-        logger.warning("task decorator ran")
         task = Task(
             name=_name,
             _transform_fn=func,

@@ -20,7 +20,7 @@ def get_access_token(audience: str) -> str:
     """
 
     try:
-        logger.debug("Trying to get token using notebookutils")
+        logger.debug("trying to get token using notebookutils")
         import notebookutils  # type: ignore
 
         token = notebookutils.credentials.getToken(audience)
@@ -30,13 +30,13 @@ def get_access_token(audience: str) -> str:
         pass
 
     try:
-        logger.debug("Trying to get token using azure-identity")
+        logger.debug("trying to get token using azure-identity")
         from azure.core.exceptions import ClientAuthenticationError
         from azure.identity import DefaultAzureCredential
     except ModuleNotFoundError as e:
         msg = (
-            "The `azure-identity` package is required to when using ADLS or OneLake protocols.\n"
-            'Please install the required dependencies: `pip install "blueno[azure]"`'
+            "the `azure-identity` package is required to when using ADLS or OneLake protocols.\n"
+            'please install the required dependencies: `pip install "blueno[azure]"`'
         )
         logger.error(msg)
         raise ModuleNotFoundError(msg) from e
@@ -45,8 +45,8 @@ def get_access_token(audience: str) -> str:
         token = DefaultAzureCredential().get_token(f"{audience}/.default").token
     except ClientAuthenticationError as e:
         msg = (
-            "Failed to get token using azure-identity. "
-            "Please check your Azure credentials and permissions."
+            "failed to get token using azure-identity. "
+            "please check your Azure credentials and permissions."
         )
         logger.error(msg)
         raise ClientAuthenticationError(msg) from e
@@ -74,10 +74,10 @@ def get_azure_storage_access_token() -> str:
         The access token used for authenticating requests to Azure Storage.
     """
 
-    logger.debug("Trying to get token using AZURE_STORAGE_TOKEN environment variable")
+    logger.debug("trying to get token using AZURE_STORAGE_TOKEN environment variable")
     token = os.environ.get("AZURE_STORAGE_TOKEN")
     if token:
-        logger.debug("Using AZURE_STORAGE_TOKEN from environment variable")
+        logger.debug("using AZURE_STORAGE_TOKEN from environment variable")
         return token
 
     logger.debug("AZURE_STORAGE_TOKEN not found.")
@@ -146,7 +146,7 @@ def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
     if isinstance(table_or_uri, DeltaTable):
         table_or_uri = table_or_uri.table_uri
 
-    logger.debug("Getting storage options for table_or_uri: %s", table_or_uri)
+    logger.debug("getting storage options for table_or_uri: %s", table_or_uri)
 
     protocol = table_or_uri.split("://")[0]
 
@@ -158,11 +158,14 @@ def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
                 "bearer_token": get_azure_storage_access_token(),
                 "allow_invalid_certificates": "true",
             }
-        case "s3" | "s3a" | "gcs":
+        case "s3" | "s3a" | "gcs" | "http" | "https":
             logger.warning(
-                f"Protocol {protocol} is not supported yet. You can provide your own storage options."
+                "protocol %s is not supported yet - you can provide your own storage options."
             )
         case _:
-            logger.debug(f"Unknown protocol: {protocol}. Assuming file system.")
+            if protocol == table_or_uri:
+                logger.debug("no object store protocol found in table_uri - assuming file system.")
+            else:
+                logger.warning("protocol %s not known", protocol)
 
     return {}

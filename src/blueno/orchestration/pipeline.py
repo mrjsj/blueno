@@ -10,7 +10,7 @@ from functools import lru_cache
 from typing import Optional
 
 from blueno.orchestration.blueprint import Blueprint
-from blueno.orchestration.job import Job
+from blueno.orchestration.job import BaseJob
 
 # class Trigger(Enum):
 #     ON_SUCCESS = "on_success"
@@ -33,12 +33,12 @@ class ActivityStatus(Enum):
 @dataclass
 class PipelineActivity:
     # id: str
-    job: Job
+    job: BaseJob
     start: float = 0.0
     duration: float = 0.0
     status: ActivityStatus = ActivityStatus.PENDING
     in_degrees: int = 0
-    dependents: list[Job] = field(default_factory=list)
+    dependents: list[BaseJob] = field(default_factory=list)
 
     def __str__(self):
         return json.dumps(
@@ -75,21 +75,28 @@ class Pipeline:
         #         )
         #     elif trigger == Trigger.ON_FAILURE:
         #         return any(dep.status == Status.FAILED for dep in dep_activities)
-        return all(
+        is_ready = all(
             dep.status in (ActivityStatus.COMPLETED, ActivityStatus.SKIPPED)
             for dep in dep_activities
         )
+        return is_ready
 
     def _update_activities_status(self):
         # with self._lock:
         for activity in self.activities:
             if activity.status is ActivityStatus.PENDING and self._is_ready(activity):
+                logger.debug("setting status for %s to READY", activity.job.name)
                 activity.status = ActivityStatus.READY
 
             if activity.status in (ActivityStatus.CANCELLED, ActivityStatus.FAILED):
                 for dep in activity.dependents:
                     act = [act for act in self.activities if act.job.name == dep][0]
                     if act.status is ActivityStatus.PENDING:
+                        logger.debug(
+                            "setting status for activity %s to CANCELLED as upstream activity %s has status %s",
+                            act.job.name,
+                            activity.status.name,
+                        )
                         act.status = ActivityStatus.CANCELLED
 
     def _update_activities(self):
@@ -119,56 +126,34 @@ class Pipeline:
     @property
     def _has_ready_activities(self) -> bool:
         return any(self._ready_activities)
-        # or all(
-        #     activity.status is Status.WAITING for activity in self.activities
-        # )
 
     def run(self, concurrency: int = 1):
-        # ready_activities = [activity for activity in self.activities if activity.in_degrees == 0]
         self._update_activities_status()
         self._update_activities()
+
         running_futures: dict[Future[str], PipelineActivity] = {}
 
-        def run_step(activity: PipelineActivity):
-            # with self._lock:
-            try:
-                if activity.status is ActivityStatus.SKIPPED:
-                    logger.info(f"Skipping: {activity.job.name}")
-                    return activity.job.name
-                logger.info(f"Running: {activity.job.name}")
-                activity.start = time.time()
-                activity.status = ActivityStatus.RUNNING
-                activity.job.run()
-                activity.status = ActivityStatus.COMPLETED
-
-            except Exception as e:
-                logger.error(f"Error running blueprint {activity.job.name}: {str(e)}")
-                print(f"Error running blueprint {activity.job.name}: {str(e)}")
-                with self._lock:
-                    activity.status = ActivityStatus.FAILED
-
-                raise e
-            logger.info(f"Finished: {activity.job.name}")
-            return activity.job.name
-
         def run_activity(activity: PipelineActivity):
+            logger.debug("setting status for activity %s to RUNNING", activity.job.name)
             activity.status = ActivityStatus.RUNNING
             activity.start = time.time()
             try:
                 activity.job.run()
+                logger.debug("setting status for activity %s to COMPLETED", activity.job.name)
                 activity.status = ActivityStatus.COMPLETED
                 activity.duration = time.time() - activity.start
             except Exception as e:
+                logger.debug("setting status for activity %s to FAILED", activity.job.name)
                 activity.status = ActivityStatus.FAILED
                 activity.duration = time.time() - activity.start
-                logger.error(f"Error running blueprint {activity.job.name}: {str(e)}")
+                logger.error("Error running blueprint %s: ", activity.job.name, e)
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             try:
                 while self._has_ready_activities or running_futures:
                     for activity in self._ready_activities:
                         # if activity.status is not Status.SKIPPED:
-
+                        logger.debug("setting status for activity %s to QUEUED", activity.job.name)
                         activity.status = ActivityStatus.QUEUED
                         future = executor.submit(run_activity, activity)
                         running_futures[future] = activity
@@ -190,12 +175,14 @@ class Pipeline:
             except KeyboardInterrupt:
                 for future, activity in running_futures.items():
                     if not (future.done() or future.running()):
+                        logger.debug(
+                            "setting status for activity %s to CANCELLED as KeyboardInterrupt was called",
+                            activity.job.name,
+                        )
                         activity.status = ActivityStatus.CANCELLED
                         future.cancel()
 
                 executor.shutdown(wait=False, cancel_futures=True)
-
-        # self._update_activities()
 
 
 def create_pipeline(jobs: list[Blueprint], subset: list[str] | None = None) -> Pipeline:
@@ -214,6 +201,9 @@ def create_pipeline(jobs: list[Blueprint], subset: list[str] | None = None) -> P
         for dep in activity.job.depends_on:
             dep_activity = name_to_activity.get(dep.name)
             if dep_activity:
+                logger.debug(
+                    "setting %s as a dependent of %s", activity.job.name, dep_activity.job.name
+                )
                 dep_activity.dependents.append(activity.job.name)
                 activity.in_degrees += 1
 
@@ -294,7 +284,5 @@ def create_pipeline(jobs: list[Blueprint], subset: list[str] | None = None) -> P
     for activity in pipeline.activities:
         if activity.job.name not in selected:
             activity.status = ActivityStatus.SKIPPED
-
-    logger.critical(pipeline)
 
     return pipeline

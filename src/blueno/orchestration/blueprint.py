@@ -23,10 +23,11 @@ from blueno.etl import (
 )
 from blueno.etl.types import DataFrameType
 from blueno.orchestration.exceptions import (
+    BluenoUserError,
     GenericBluenoError,
     InvalidJobError,
 )
-from blueno.orchestration.job import BaseJob, Job, JobRegistry, job_registry, track_step
+from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_step
 
 logger = logging.getLogger(__name__)
 
@@ -39,17 +40,18 @@ class Blueprint(BaseJob):
     format: str
     write_mode: str
     _transform_fn: Callable
-    primary_keys: list[str] = field(default_factory=list)
-    partition_by: list[str] = field(default_factory=list)
+    primary_keys: list[str] | None = field(default_factory=list)
+    partition_by: list[str] | None = field(default_factory=list)
     incremental_column: str | None = None
     valid_from_column: str | None = None
     valid_to_column: str | None = None
     priority: int = 100
 
-    _inputs: list[Job] = field(default_factory=list)
+    _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
     _current_step: str = ""
 
+    @track_step
     def _register(self, registry: JobRegistry) -> None:
         super()._register(job_registry)
 
@@ -63,9 +65,9 @@ class Blueprint(BaseJob):
             table_uris = [b.table_uri.strip("/") for b in blueprints if b.table_uri is not None]
 
             if self.table_uri.rstrip("/") in table_uris:
-                msg = f"A blueprint with table_uri {self.table_uri} already exists!"
-                logger.error(msg)
-                raise InvalidJobError(msg)
+                msg = "a job with table_uri %s already exists"
+                logger.error(msg, self.table_uri)
+                raise InvalidJobError(msg % self.table_uri)
 
         registry.jobs[self.name] = self
 
@@ -85,16 +87,17 @@ class Blueprint(BaseJob):
             }
         )
 
+    @track_step
     def read(self) -> DataFrameType:
         if self._dataframe is not None:
-            logger.debug(f"Reading blueprint `{self.name}` from `self._dataframe`")
+            logger.debug("reading %s %s from %s", self.type, self.name, "dataframe")
             return self._dataframe
 
         if self.table_uri is not None and self.format != "dataframe":
-            logger.debug(f"Reading blueprint `{self.name}` from `self.table_uri`")
+            logger.debug("reading %s %s from %s", self.type, self.name, self.table_uri)
             return self.target_df
 
-        logger.debug(f"Reading blueprint `{self.name}` from `self.transform()`")
+        logger.debug("%s %s is not materialized - materializing", self.type, self.name)
         self.transform()
 
         return self._dataframe
@@ -113,16 +116,13 @@ class Blueprint(BaseJob):
 
     @track_step
     def write(self) -> None:
-        logger.debug(
-            f"Writing blueprint `{self.name}` to `{self.table_uri}` with mode `{self.write_mode}`"
-        )
+        logger.debug("writing %s %s to %s", self.type, self.name, self.format)
+
         if self.format == "dataframe":
-            logger.debug(f"Writing blueprint `{self.name}` to memory")
             self._dataframe = self._dataframe.lazy().collect()
             return
 
         if self.format == "parquet":
-            logger.debug(f"Writing blueprint `{self.name}` to parquet")
             write_parquet(self.table_uri, self._dataframe, partition_by=self.partition_by)
             return
 
@@ -170,11 +170,15 @@ class Blueprint(BaseJob):
                         primary_key_columns=self.primary_keys + [self.valid_from_column],
                     )
                 case _:
-                    msg = f"Invalid write mode `{self.write_mode}` for `{self.format}` for blueprint `{self.name}`"
-                    logger.error(msg)
-                    raise GenericBluenoError(msg)
+                    msg = "invalid write_mode %s for %s for %s %s"
+                    logger.error(msg, self.write_mode, self.format, self.type, self.name)
+                    raise GenericBluenoError(
+                        msg % (self.write_mode, self.format, self.type, self.name)
+                    )
 
-        logger.debug(f"Successfully wrote blueprint `{self.name}` to `{self.table_uri}`")
+        logger.debug(
+            "wrote %s %s to %s with mode %s", self.type, self.name, self.table_uri, self.write_mode
+        )
 
     @track_step
     def read_sources(self):
@@ -184,8 +188,6 @@ class Blueprint(BaseJob):
 
     @track_step
     def transform(self) -> None:
-        logger.debug(f"Transforming blueprint {self.name}")
-
         sig = inspect.signature(self._transform_fn)
         if "self" in sig.parameters.keys():
             self._dataframe: DataFrameType = self._transform_fn(self, *self._inputs)
@@ -193,37 +195,34 @@ class Blueprint(BaseJob):
             self._dataframe: DataFrameType = self._transform_fn(*self._inputs)
 
         if not isinstance(self._dataframe, DataFrameType):
-            msg = (
-                f"Transform function `{self._transform_fn.__name__}` must return a `DataFrameType`!"
-            )
-            logger.error(msg)
-            raise TypeError(msg)
+            msg = "%s %s must return a DataFrameType"
+            logger.error(msg, self.type, self.name)
+            raise TypeError(msg % (self.type, self.name))
 
     @track_step
     def validate_schema(self) -> None:
         if self.schema is None:
-            logger.debug(f"Schema is not set for blueprint `{self.name}`. Skipping validation.")
+            logger.debug("schema is not set for %s %s - skipping validation", self.type, self.name)
             return
 
         if self._dataframe is None:
-            msg = f"Blueprint `{self.name}` has no dataframe to validate against the schema. Run the `transform` method first!"
-            logger.error(msg)
-            raise GenericBluenoError(msg)
+            msg = "%s %s has no dataframe to validate against the schema - `transform` must be run first"
+            logger.error(msg, self.type, self.name)
+            raise GenericBluenoError(msg % (self.type, self.name))
 
-        logger.debug(f"Validating schema for blueprint `{self.name}`")
+        logger.debug("validating schema for %s %s", self.type, self.name)
 
         schema_frame = pl.DataFrame(schema=self.schema)
         assert_frame_equal(self._dataframe.limit(0), schema_frame, check_column_order=False)
-        logger.debug(f"Schema validation passed for blueprint `{self.name}`")
 
+        logger.debug("schema validation passed for %s %s", self.type, self.name)
+
+    @track_step
     def run(self):
-        logger.debug(f"Running blueprint: {self.name}")
         self.read_sources()
         self.transform()
         self.validate_schema()
         self.write()
-
-        logger.debug(f"Succesfully ran blueprint: {self.table_uri}")
 
 
 def blueprint(
@@ -282,49 +281,49 @@ def blueprint(
     _primary_keys = primary_keys or []
 
     if schema is not None and not isinstance(schema, pl.Schema):
-        msg = "`schema` must be a polars schema (`pl.Schema`)."
+        msg = "schema must be a polars schema (pl.Schema)."
         logger.error(msg)
-        raise GenericBluenoError(msg)
+        raise BluenoUserError(msg)
 
     if write_mode not in ["append", "overwrite", "upsert", "incremental", "replace_range", "scd2"]:
-        msg = "`write_method` must be one of: 'append', 'overwrite', 'upsert', 'incremental', 'replace_range', 'scd2'."
+        msg = "write_method must be one of: 'append', 'overwrite', 'upsert', 'incremental', 'replace_range', 'scd2'"
         logger.error(msg)
-        raise GenericBluenoError(msg)
+        raise BluenoUserError(msg)
 
     if format not in ["delta", "parquet", "dataframe"]:
-        msg = f"`format` must be one of: 'delta', 'parquet', 'dataframe'. Got {format}."
-        logger.error(msg)
-        raise GenericBluenoError(msg)
+        msg = "format must be one of: 'delta', 'parquet', 'dataframe' - got %s"
+        logger.error(msg, format)
+        raise BluenoUserError(msg % format)
 
     if write_mode == "upsert" and not primary_keys:
-        msg = "`primary_keys` must be provided for `upsert` write mode."
+        msg = "primary_keys must be provided for upsert write_mode"
         logger.error(msg)
-        raise GenericBluenoError(msg)
+        raise BluenoUserError(msg)
 
     if write_mode in ("incremental", "replace_range") and not incremental_column:
-        msg = "`incremental_column` must be provided for `incremental` and `replace_range` write mode."
+        msg = "incremental_column must be provided for incremental and replace_range write_mode"
         logger.error(msg)
-        raise GenericBluenoError(msg)
+        raise BluenoUserError(msg)
 
-    if write_mode == "scd2" and (not valid_from_column or not valid_to_column):
-        msg = "`valid_from_column` and `valid_to_column` must be provided for `scd2` write mode."
+    if write_mode == "scd2" and (not primary_keys or not valid_from_column or not valid_to_column):
+        msg = "primary_keys, valid_from_column and valid_to_column must be provided for scd2 write_mode"
         logger.error(msg)
-        raise GenericBluenoError(msg)
+        raise BluenoUserError(msg)
 
     if write_mode == "scd2" and not primary_keys:
-        msg = "`primary_keys` must be provided for `scd2` write mode."
+        msg = "primary_keys must be provided for scd2 write_mode."
         logger.error(msg)
-        raise GenericBluenoError(msg)
+        raise BluenoUserError(msg)
 
     def decorator(func: types.FunctionType):
         _name = name or func.__name__
-        logger.warning("blueprint decorator ran")
 
         blueprint = Blueprint(
             table_uri=table_uri,
             schema=schema,
             name=_name,
             primary_keys=_primary_keys,
+            partition_by=partition_by,
             incremental_column=incremental_column,
             valid_from_column=valid_from_column,
             valid_to_column=valid_to_column,

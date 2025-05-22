@@ -16,47 +16,30 @@ from blueno.orchestration.exceptions import DuplicateJobError, JobNotFoundError
 logger = logging.getLogger(__name__)
 
 
-@dataclass(kw_only=True)
-class Job(ABC):
-    name: str
-    priority: int
-    _current_step: str | None = None
-    _transform_fn: Callable = lambda: None
-
-    @property
-    @abstractmethod
-    def current_step(self) -> list[Job]: ...
-
-    @property
-    @abstractmethod
-    def type(self) -> str: ...
-
-    @abstractmethod
-    def _register(self, register: JobRegistry) -> None: ...
-
-    @property
-    @abstractmethod
-    def depends_on(self) -> list[Job]: ...
-
-    @abstractmethod
-    def run(self) -> None:
-        """What to do when activity is run."""
-        pass
-
-
 def track_step(func):
     def wrapper(self, *args, **kwargs):
+        logger.debug("started step %s for %s %s", func.__name__, self.type, self.name)
         if self._current_step:
             self._current_step += " -> " + func.__name__
         else:
             self._current_step = func.__name__
-        return func(self, *args, **kwargs)
+        result = func(self, *args, **kwargs)
+        logger.debug("completed step %s for %s %s", func.__name__, self.type, self.name)
+        return result
 
     return wrapper
 
+from functools import lru_cache
 
 @dataclass(kw_only=True)
-class BaseJob(Job):
+class BaseJob(ABC):
+    name: str
+    priority: int
+    _current_step: str | None = None
+    _transform_fn: Callable = lambda: None
+    _depends_on: list[BaseJob] | None = None
+
+    @track_step
     def _register(self, registry: JobRegistry) -> None:
         if self.name in registry.jobs:
             msg = f"A {type(self).__base__} with name {self.name} already exists!"
@@ -74,7 +57,11 @@ class BaseJob(Job):
         return type(self).__name__
 
     @property
-    def depends_on(self) -> list[Job]:
+    # @lru_cache(maxsize=1)
+    def depends_on(self) -> list[BaseJob]:
+        if self._depends_on is not None:
+            return self._depends_on
+
         sig = inspect.signature(self._transform_fn)
 
         dependencies = list(sig.parameters.keys())
@@ -84,47 +71,49 @@ class BaseJob(Job):
             if dependency in ("self"):
                 continue
 
-            blueprint = job_registry.jobs.get(dependency)
-            if blueprint is None:
-                msg = f"The dependency in blueprint `{self.name}` with name `{dependency}` does not exist!"
+            job = job_registry.jobs.get(dependency)
+            if job is None:
+                msg = "the dependency in %s %s with name %s does not exist"
 
                 from difflib import get_close_matches
 
                 close_matches = get_close_matches(dependency, job_registry.jobs.keys(), n=1)
 
                 if len(close_matches) > 0:
-                    msg += f" Did you mean `{close_matches[0]}`?"
+                    msg += " - did you mean %s?" % close_matches[0]
 
-                logger.error(msg)
-                raise JobNotFoundError(msg)
+                logger.error(msg, self.type, self.name, dependency)
+                raise JobNotFoundError(msg % (self.type, self.name, dependency))
 
-            inputs.append(blueprint)
-            logger.debug(f"Found dependency: {dependency}, {blueprint}")
+            logger.debug("found dependency %s for job %s", dependency, job.name)
+            inputs.append(job)
 
-        return inputs
+        self._depends_on = inputs
+        return self._depends_on
+
+    @abstractmethod
+    def run(self) -> None:
+        """What to do when job is run."""
+        pass
 
 
 @dataclass
 class JobRegistry:
     _instance: Optional[JobRegistry] = None
-    jobs: dict[str, Job] = field(default_factory=dict)
+    jobs: dict[str, BaseJob] = field(default_factory=dict)
 
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def discover_py_blueprints(self, path: str | pathlib.Path = "blueprints") -> None:
-        logger.debug(f"Discovering Python blueprints in {path}")
+    def discover_py_blueprints(self, path: str | pathlib.Path) -> None:
         base_dir = pathlib.Path(path).absolute()
 
-        logger.debug(f"Base dir: {base_dir}")
-
-        files = base_dir.rglob("**/*.py")
         import os
 
         cwd = os.getcwd()
-        logger.debug(f"Files: {list(files)}")
+        logger.debug("discovering jobs in %s", base_dir)
 
         for py_file in base_dir.rglob("**/*.py"):
             # Skip __init__.py or hidden files
@@ -138,6 +127,7 @@ class JobRegistry:
 
             module_name = ".".join(module_path.parts)
 
+            logger.debug("importing %s from %s", module_name, module_path)
             # TODO: Find a better way to do this
             if "." not in sys.path:
                 sys.path.append(".")
@@ -145,6 +135,8 @@ class JobRegistry:
                 sys.path.remove(".")
             else:
                 importlib.import_module(module_name)
+
+        logger.debug("done discovering jobs")
 
     # def discover_sql_blueprints(self, path: str | pathlib.Path = "blueprints") -> None:
     #     def parse_blueprint(sql: str):
@@ -241,20 +233,20 @@ class JobRegistry:
         self.discover_py_blueprints(path)
         # self.discover_sql_blueprints(path)
 
-    def register(self, job: Job) -> None:
-        if job.name in self.jobs:
-            msg = f"A blueprint with name {job.name} already exists!"
-            logger.error(msg)
-            raise DuplicateJobError(msg)
+    # def register(self, job: BaseJob) -> None:
+    #     if job.name in self.jobs:
+    #         msg = f"A blueprint with name {job.name} already exists!"
+    #         logger.error(msg)
+    #         raise DuplicateJobError(msg)
 
-        logger.debug(f"Adding job {job} to jobs registry")
-        self.jobs[job.name] = job
+    #     logger.debug("adding job %s to jobs registry", job.name)
+    #     self.jobs[job.name] = job
 
     def render_dag(self):
         try:
             import graphviz
         except ImportError as e:
-            msg = "Graphviz is not installed. Please install it to render the DAG."
+            msg = "graphviz is not installed - install it to render the dag"
             logger.error(msg)
             raise ImportError(msg) from e
 
@@ -267,8 +259,6 @@ class JobRegistry:
 
         with TemporaryDirectory() as tmpdirname:  # ty: ignore[no-matching-overload]
             dot.render(tmpdirname + "_dag", view=True, format="png")
-
-    # def build_dag(self, )
 
 
 job_registry = JobRegistry()
