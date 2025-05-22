@@ -1,0 +1,54 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*"  
+
+jobs:
+  build-and-upload:
+    runs-on: ubuntu-latest
+
+    environment: release
+
+    permissions:
+      id-token: write
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Print tag
+      run: echo ${{ github.ref_name }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+
+    - name: uv sync
+      run: |
+        uv sync --all-groups
+
+    # - name: Install build dependencies
+    #   run: |
+    #     uv add setuptools wheel build toml
+            
+    - name: Build package
+      run: uv build --wheel
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        packages-dir: dist
+
+    - name: Create a Release
+      uses: elgohr/Github-Release-Action@v5
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        title: Release ${{ github.ref_name }}
+        tag: ${{ github.ref_name }}

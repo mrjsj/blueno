@@ -1,0 +1,168 @@
+import logging
+import os
+from functools import lru_cache
+
+from deltalake import DeltaTable
+
+logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=1)
+def get_access_token(audience: str) -> str:
+    """
+    Retrieves an access token for a given audience.
+
+    This function attempts to obtain an access token for a given audience.
+    It first checks if the code is running in a Microsoft Fabric notebook environment
+    and attempts to use the `notebookutils` library to get the token. If the library
+    is not available, it falls back to using the `DefaultAzureCredential` from the Azure SDK
+    to fetch the token.
+    """
+
+    try:
+        logger.debug("Trying to get token using notebookutils")
+        import notebookutils  # type: ignore
+
+        token = notebookutils.credentials.getToken(audience)
+        return token
+    except ModuleNotFoundError:
+        logger.debug("notebookutils not found, falling back to azure-identity")
+        pass
+
+    try:
+        logger.debug("Trying to get token using azure-identity")
+        from azure.core.exceptions import ClientAuthenticationError
+        from azure.identity import DefaultAzureCredential
+    except ModuleNotFoundError as e:
+        msg = (
+            "The `azure-identity` package is required to when using ADLS or OneLake protocols.\n"
+            'Please install the required dependencies: `pip install "blueno[azure]"`'
+        )
+        logger.error(msg)
+        raise ModuleNotFoundError(msg) from e
+
+    try:
+        token = DefaultAzureCredential().get_token(f"{audience}/.default").token
+    except ClientAuthenticationError as e:
+        msg = (
+            "Failed to get token using azure-identity. "
+            "Please check your Azure credentials and permissions."
+        )
+        logger.error(msg)
+        raise ClientAuthenticationError(msg) from e
+
+    return token
+
+
+def get_onelake_access_token() -> str:
+    """
+    Alias for `get_azure_storage_access_token`
+    """
+    return get_azure_storage_access_token()
+
+
+def get_azure_storage_access_token() -> str:
+    """
+    Retrieves an access token for Azure Storage.
+
+    This function attempts to obtain an access token for accessing Azure storage.
+    It first checks if the `AZURE_STORAGE_TOKEN` environment variable is set.
+    Otherwise, it tries to get the token using `notebookutils.credentials.getToken`.
+    Lastly, it falls back to using the `DefaultAzureCredential`.
+
+    Returns:
+        The access token used for authenticating requests to Azure Storage.
+    """
+
+    logger.debug("Trying to get token using AZURE_STORAGE_TOKEN environment variable")
+    token = os.environ.get("AZURE_STORAGE_TOKEN")
+    if token:
+        logger.debug("Using AZURE_STORAGE_TOKEN from environment variable")
+        return token
+
+    logger.debug("AZURE_STORAGE_TOKEN not found.")
+
+    audience = "https://storage.azure.com"
+
+    token = get_access_token(audience)
+
+    return token
+
+
+def get_fabric_bearer_token() -> str:
+    """
+    Retrieves a bearer token for Fabric (Power BI) API.
+
+    This function attempts to obtain a bearer token for authenticating requests to the
+    Power BI API. It first checks if the code is running in a Microsoft Fabric
+    notebook environment and tries to use the `notebookutils` library to get the token.
+    If the library is not available, it falls back to using the `DefaultAzureCredential`
+    from the Azure SDK to fetch the token.
+
+    Returns:
+        The bearer token used for authenticating requests to the Fabric (Power BI) API.
+    """
+    audience = "https://analysis.windows.net/powerbi/api"
+    return get_access_token(audience)
+
+
+def get_azure_devops_access_token() -> str:
+    """
+    Retrieves a bearer token for Azure DevOps.
+
+    This function attempts to obtain a bearer token for authenticating requests to Azure DevOps.
+
+    Returns:
+        The bearer token used for authenticating requests to Azure DevOps.
+    """
+    audience = "499b84ac-1321-427f-aa17-267ca6975798"
+    return get_access_token(audience)
+
+
+def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
+    """
+    Retrieves storage options including a bearer token for Azure Storage.
+
+    This function calls `get_azure_storage_access_token` to obtain a bearer token
+    and returns a dictionary containing the token.
+
+    Args:
+        table_or_uri (str): The URI of the Delta table.
+
+    Returns:
+        A dictionary containing the storage options for Azure Storage.
+
+    Example:
+        **Retrieve storage options**
+        ```python
+        from blueno import get_storage_options
+
+        options = get_storage_options("abfss://path/to/delta_table")
+        options
+        {"bearer_token": "your_token_here"}
+        ```
+    """
+
+    if isinstance(table_or_uri, DeltaTable):
+        table_or_uri = table_or_uri.table_uri
+
+    logger.debug("Getting storage options for table_or_uri: %s", table_or_uri)
+
+    protocol = table_or_uri.split("://")[0]
+
+    match protocol:
+        case "abfss":
+            # TODO: `allow_invalid_certificates` is set due to: https://github.com/delta-io/delta-rs/issues/3243
+            # This is specifically an issue in the Microsoft Fabric Python runtime.
+            return {
+                "bearer_token": get_azure_storage_access_token(),
+                "allow_invalid_certificates": "true",
+            }
+        case "s3" | "s3a" | "gcs":
+            logger.warning(
+                f"Protocol {protocol} is not supported yet. You can provide your own storage options."
+            )
+        case _:
+            logger.debug(f"Unknown protocol: {protocol}. Assuming file system.")
+
+    return {}

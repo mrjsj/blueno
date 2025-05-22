@@ -1,0 +1,175 @@
+import logging
+from typing import Annotated, Literal, Optional
+
+from cyclopts import App, Group, Parameter
+
+# from blueno.blueprint import create_pipeline, job_registry
+from blueno import create_pipeline, job_registry
+from blueno.display import task_display
+
+logger = logging.getLogger(__name__)
+
+
+class CustomFormatter(logging.Formatter):
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    reset = "\x1b[0m"
+    _format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+    # format = "%(asctime)s - %(levelname)s - %(message)s (%(filename)s:%(lineno)d)"
+
+    # # FORMATS = {
+    # #     logging.DEBUG: grey + format + reset,
+    # #     logging.INFO: grey + format + reset,
+    # #     logging.WARNING: yellow + format + reset,
+    # #     logging.ERROR: red + format + reset,
+    # #     logging.CRITICAL: bold_red + format + reset,
+    # # }
+
+    def format(self, record):
+        # log_fmt = self.FORMATS.get(record.levelno)
+        formatter = logging.Formatter(self._format)
+        return formatter.format(record)
+
+
+app = App(default_parameter=Parameter(negative=()))
+global_args = Group(
+    name="Global arguments", default_parameter=Parameter(show_default=False, negative=())
+)
+
+
+def setup_logging(log_level: str, display_mode: Optional[str] = None) -> None:
+    handlers = [logging.FileHandler("blueno.log")]
+
+    if display_mode == "log" or display_mode is None:
+        stream_handler = logging.StreamHandler()  # ty: ignore[no-matching-overload]
+        handlers.append(stream_handler)
+
+    for handler in handlers:
+        handler.setLevel(log_level)
+        handler.setFormatter(CustomFormatter())
+
+    logging.basicConfig(level=log_level, handlers=handlers)
+
+
+def prepare_blueprints(project_dir: str) -> None:
+    job_registry.discover_jobs(project_dir)
+
+
+@app.command
+def run(
+    project_dir: str,
+    select: Optional[list[str]] = None,
+    display_mode: Annotated[
+        Literal["live", "log", "none"],
+        Parameter(help="Show live updates, log output, or no output"),
+    ] = "live",
+    show_dag: bool = False,
+    concurrency: int = 1,
+    help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
+    log_level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR"],
+        Parameter(group=global_args, help="Log level to use"),
+    ] = "INFO",
+):
+    """
+    Run the blueprints
+
+    Args:
+        project_dir (str): Path to the blueprints
+        concurrency (int): Number of concurrent tasks to run
+        select: List of blueprints to run. If not provided, all blueprints will be run
+        show_dag: Whether to show the DAG of the blueprints
+
+    """
+
+    setup_logging(log_level, display_mode)
+    prepare_blueprints(project_dir)
+
+    if show_dag:
+        job_registry.render_dag()
+
+    blueprints = list(job_registry.jobs.values())
+
+    pipeline = create_pipeline(blueprints, subset=select)
+
+    if display_mode == "live":
+        with task_display(pipeline, 10):
+            pipeline.run(concurrency=concurrency)
+    else:
+        pipeline.run(concurrency=concurrency)
+
+
+@app.command
+def run_remote(
+    project_dir: str,
+    workspace_id: str,
+    lakehouse_id: str,
+    notebook_id: str,
+    select: Optional[list[str]] = None,
+    concurrency: int = 1,
+    v_cores: int = 2,
+    help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
+    log_level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR"],
+        Parameter(group=global_args, help="Log level to use"),
+    ] = "INFO",
+):
+    """
+    Run the blueprints in a Microsoft Fabric remote environment.
+    It uploads the blueprints to the target lakehouse in a temporary folder, and runs the blueprints from a notebook.
+
+    Args:
+        project_dir (str): Path to the blueprints
+        workspace_name (str): The workspace id to use
+        lakehouse_name (str): The lakehouse id to use
+        notebook_id (str): The notebook id to use
+        concurrency (int): Number of concurrent tasks to run
+        v_cores (int): Number of vCores to use
+        select: List of blueprints to run. If not provided, all blueprints will be run
+
+    https://app.powerbi.com/groups/a66707df-7616-41bb-a542-c7b0f70f4a5d/lakehouses/bf969d43-9b7a-4815-9a80-701afd5e5fb0?experience=power-bi
+    https://app.powerbi.com/groups/a66707df-7616-41bb-a542-c7b0f70f4a5d/synapsenotebooks/368c6467-3a69-4c06-9799-f56dfb01241c?experience=power-bi
+    """
+    import uuid
+
+    from blueno.fabric import (
+        run_notebook,
+        upload_folder_contents,
+    )
+
+    setup_logging(log_level, display_mode=None)
+
+    prepare_blueprints(project_dir)
+
+    destination_folder = f"{project_dir.split('/')[-1]}_{str(uuid.uuid4()).split('-')[0]}"
+
+    upload_folder_contents(
+        source_folder=project_dir,
+        workspace_name=workspace_id,
+        lakehouse_name=lakehouse_id,
+        destination_folder=destination_folder,
+    )
+
+    execution_data = {
+        "parameters": {
+            "concurrency": {"value": concurrency, "type": "int"},
+            "project_dir": {"value": destination_folder, "type": "string"},
+            "log_level": {"value": log_level, "type": "string"},
+            "select": {"value": ";".join(select) if select else "", "type": "string"},
+        },
+        "configuration": {
+            "vCores": v_cores,
+        },
+    }
+
+    run_notebook(workspace_id=workspace_id, notebook_id=notebook_id, execution_data=execution_data)
+
+
+def main():
+    app()
+
+
+if __name__ == "__main__":
+    main()

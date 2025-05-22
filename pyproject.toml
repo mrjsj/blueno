@@ -1,0 +1,71 @@
+[build-system]
+requires = ["setuptools>=64", "wheel", "setuptools_scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blueno"
+dynamic = ["version"]
+description = "A Python ETL library for creating declarative data pipelines."
+authors = [
+    { name = "Jimmy Jensen" },
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
+keywords = ["etl", "deltalake", "polars", "delta-rs", "fabric", "Microsoft", "azure"]
+license-files = ["LICENSE"]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "cyclopts>=3.16.1",
+    "deltalake>=0.25.5",
+    "polars>=1.29.0 ; sys_platform != 'darwin'",
+    "polars-lts-cpu>=1.29.0 ; sys_platform == 'darwin'",
+]
+
+[project.urls]
+Repository = "https://github.com/mrjsj/blueno"
+
+
+[project.scripts]
+blueno = "blueno.cli:main"
+
+[project.optional-dependencies]
+azure = [
+    "azure-identity>=1.17.0",
+]
+
+[tool.setuptools_scm]
+
+[tool.ruff]
+line-length = 100
+include = ["src/**/*.py", "tests/**/*.py"]
+
+[tool.ruff.lint]
+extend-select = ["Q001", "I001"]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src",
+]
+
+[dependency-groups]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-include-dir-to-nav>=1.2.0",
+    "mkdocs-material>=9.6.14",
+    "mkdocstrings-python>=1.16.10",
+]
+dev = [
+    "freezegun>=1.5.1",
+    "graphviz>=0.20.3",
+    "pytest>=8.3.5",
+    "python-dotenv>=1.1.0",
+    "ruff>=0.11.10",
+    "ty>=0.0.1a4",
+]
