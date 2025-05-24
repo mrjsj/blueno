@@ -1,10 +1,10 @@
 
 ![blueno logo](./assets/images/blueno-128x128.png)
  
-A Python library for writing declarative data pipelines the ***bueno*** way
+A platform agnostic Python library for writing declarative data pipelines the ***bueno*** way
 
 # blueno
-A collection of Spark-free Python ETL utilities for working with data pipelines with built in orchestration.
+A collection of Python ETL utilities for working with data pipelines with built in orchestration.
 
 Mainly focused on Data Engineering tasks utilising [Polars](https://github.com/pola-rs/polars) and [delta-rs](https://github.com/delta-io/delta-rs).
 
