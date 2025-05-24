@@ -82,9 +82,7 @@ azure = [
 dev = [
     { name = "freezegun" },
     { name = "graphviz" },
-    { name = "mkdocs-gen-files" },
     { name = "pytest" },
-    { name = "pytest-markdown-docs" },
     { name = "python-dotenv" },
     { name = "ruff" },
     { name = "ty" },
@@ -95,6 +93,8 @@ docs = [
     { name = "mkdocs-include-dir-to-nav" },
     { name = "mkdocs-material" },
     { name = "mkdocstrings-python" },
+    { name = "pytest" },
+    { name = "pytest-markdown-docs" },
 ]
 
 [package.metadata]
@@ -111,9 +111,7 @@ provides-extras = ["azure"]
 dev = [
     { name = "freezegun", specifier = ">=1.5.1" },
     { name = "graphviz", specifier = ">=0.20.3" },
-    { name = "mkdocs-gen-files", specifier = ">=0.5.0" },
     { name = "pytest", specifier = ">=8.3.5" },
-    { name = "pytest-markdown-docs", specifier = ">=0.9.0" },
     { name = "python-dotenv", specifier = ">=1.1.0" },
     { name = "ruff", specifier = ">=0.11.10" },
     { name = "ty", specifier = ">=0.0.1a4" },
@@ -124,6 +122,8 @@ docs = [
     { name = "mkdocs-include-dir-to-nav", specifier = ">=1.2.0" },
     { name = "mkdocs-material", specifier = ">=9.6.14" },
     { name = "mkdocstrings-python", specifier = ">=1.16.10" },
+    { name = "pytest", specifier = ">=8.3.5" },
+    { name = "pytest-markdown-docs", specifier = ">=0.9.0" },
 ]
 
 [[package]]

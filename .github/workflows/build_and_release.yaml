@@ -6,6 +6,9 @@ on:
       - "v*"  
 
 jobs:
+  ci:
+    uses: ./.github/workflows/ci.yaml
+
   build-and-upload:
     runs-on: ubuntu-latest
 
