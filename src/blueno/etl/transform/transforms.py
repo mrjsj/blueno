@@ -1,10 +1,14 @@
+import logging
 from typing import Callable
 
 import polars as pl
 from polars.exceptions import ColumnNotFoundError
 
 from blueno.etl.config import Column
-from blueno.etl.types import DataFrameType
+from blueno.exceptions import BluenoUserError
+from blueno.types import DataFrameType
+
+logger = logging.getLogger(__name__)
 
 
 def add_audit_columns(df: DataFrameType, audit_columns: list[Column]) -> DataFrameType:
@@ -163,7 +167,7 @@ def reorder_columns_by_suffix(
             "name_value": ["x", "y"],
             "age_value": [10, 20]
         })
-        reordered_df = reorder_columns_by_suffix(df, suffix_order=["_key", "_value"])
+        reordered_df = reorder_columns_by_suffix(df, suffix_order=["_pk", "_fk"])
         ```
     """
     if isinstance(df, pl.LazyFrame):
@@ -213,7 +217,7 @@ def reorder_columns_by_prefix(
             "fact_sales": [100, 200],
             "fact_quantity": [5, 10]
         })
-        reordered_df = reorder_columns_by_prefix(df, prefix_order=["dim_", "fact_"])
+        reordered_df = reorder_columns_by_prefix(df, prefix_order=["pk_", "fk_"])
         ```
     """
     if isinstance(df, pl.LazyFrame):
@@ -312,6 +316,11 @@ def apply_scd_type_2(
         - Records in source_df will create new versions if they differ from target_df
         - Historical records are preserved with appropriate valid_to dates
     """
+    if type(source_df) is not type(target_df):
+        msg = "source_df and target_df must both be pl.DataFrame or pl.LazyFrame"
+        logger.error(msg)
+        raise BluenoUserError(msg)
+
     if isinstance(primary_key_columns, str):
         primary_key_columns = [primary_key_columns]
 
@@ -325,7 +334,7 @@ def apply_scd_type_2(
     # In combination with the following filter, it executes a non-equi join.
     # Essentially, we just want to find the rows in the target table which "surround" the row in the source table by the valid_from column.
     target_records_to_be_updated = target_df.join(
-        source_df,
+        other=source_df,
         on=primary_key_columns,
         how="left",
         suffix="__source",
