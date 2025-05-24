@@ -2,7 +2,7 @@ import polars as pl
 from deltalake import DeltaTable, write_deltalake
 
 from blueno.etl.config import Column
-from blueno.etl.types import DataFrameType
+from blueno.types import DataFrameType
 from blueno.utils import (
     build_merge_predicate,
     build_when_matched_update_columns,
@@ -67,18 +67,11 @@ def upsert(
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
 
-    df = df.to_arrow()
-
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
-    else:
-        dt = table_or_uri
-
     merge_predicate = build_merge_predicate(primary_key_columns)
 
     predicate_update_columns = [
         column
-        for column in df.column_names
+        for column in df.columns
         if column
         not in primary_key_columns + predicate_exclusion_columns + update_exclusion_columns
     ]
@@ -86,10 +79,17 @@ def upsert(
 
     update_columns = [
         column
-        for column in df.column_names
+        for column in df.columns
         if column not in primary_key_columns + update_exclusion_columns
     ]
     when_matched_update_columns = build_when_matched_update_columns(update_columns)
+
+    df = df.to_arrow()
+
+    if isinstance(table_or_uri, str):
+        dt = get_or_create_delta_table(table_or_uri, df.schema)
+    else:
+        dt = table_or_uri
 
     table_merger = (
         dt.merge(
@@ -172,14 +172,21 @@ def replace_range(
     else:
         dt = table_or_uri
 
-    min_value, max_value = (
-        df.select(
+    if isinstance(df, pl.LazyFrame):
+        min_value, max_value = (
+            df.select(
+                pl.col(range_column).min(),
+                pl.col(range_column).max(),
+            )
+            .collect()
+            .row(0)
+        )
+
+    else:
+        min_value, max_value = df.select(
             pl.col(range_column).min(),
             pl.col(range_column).max(),
-        )
-        .collect()
-        .row(0)
-    )
+        ).row(0)
 
     predicate = f'{range_column} >= "{min_value}" AND {range_column} <= "{max_value}"'
 

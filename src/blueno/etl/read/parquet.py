@@ -1,7 +1,7 @@
 import polars as pl
 
 from blueno.auth import get_storage_options
-from blueno.etl.types import DataFrameType
+from blueno.types import DataFrameType
 
 
 def read_parquet(table_uri: str, eager: bool = False) -> DataFrameType:

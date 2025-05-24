@@ -7,7 +7,7 @@ from blueno import (
     create_pipeline,
     job_registry,
 )
-from blueno.orchestration.exceptions import (
+from blueno.exceptions import (
     BluenoUserError,
     DuplicateJobError,
     InvalidJobError,

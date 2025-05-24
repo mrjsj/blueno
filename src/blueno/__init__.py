@@ -5,11 +5,11 @@ from blueno.auth import (
     get_fabric_bearer_token,
     get_onelake_access_token,
 )
-from blueno.etl.types import DataFrameType
 from blueno.orchestration.blueprint import Blueprint, blueprint
 from blueno.orchestration.job import job_registry
 from blueno.orchestration.pipeline import create_pipeline
 from blueno.orchestration.task import Task, task
+from blueno.types import DataFrameType
 
 __all__ = (
     "get_fabric_bearer_token",
