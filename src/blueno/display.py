@@ -26,7 +26,7 @@ STATUS_COLOR = {
 }
 
 
-def render_table(activities: list[PipelineActivity]):
+def _render_table(activities: list[PipelineActivity]):
     border_style = Style(color=None, bold=True)
 
     table = Table(expand=False, border_style=border_style)
@@ -59,7 +59,7 @@ def render_table(activities: list[PipelineActivity]):
 
 
 @contextmanager
-def task_display(pipeline: Pipeline, refresh_per_second: int):
+def _task_display(pipeline: Pipeline, refresh_per_second: int):
     stop_event = threading.Event()
 
     def update(live: Live, activities: list[PipelineActivity], stop_event: threading.Event):
@@ -69,10 +69,10 @@ def task_display(pipeline: Pipeline, refresh_per_second: int):
             if activity.status
             in (ActivityStatus.RUNNING, ActivityStatus.PENDING, ActivityStatus.READY)
         ):
-            live.update(render_table(activities))
+            live.update(_render_table(activities))
             time.sleep(1.0 / refresh_per_second)
 
-    with Live(render_table(pipeline.activities), refresh_per_second=refresh_per_second) as live:
+    with Live(_render_table(pipeline.activities), refresh_per_second=refresh_per_second) as live:
         updater = Thread(target=update, args=(live, pipeline.activities, stop_event), daemon=True)
         updater.start()
 
@@ -81,4 +81,4 @@ def task_display(pipeline: Pipeline, refresh_per_second: int):
         finally:
             stop_event.set()
             # updater.join()
-            live.update(render_table(pipeline.activities))
+            live.update(_render_table(pipeline.activities))

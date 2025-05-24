@@ -1,3 +1,5 @@
+"""Blueno."""
+
 from importlib.metadata import PackageNotFoundError, version
 
 from blueno.auth import (

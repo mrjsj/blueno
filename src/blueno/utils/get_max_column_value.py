@@ -7,24 +7,22 @@ from blueno.auth import get_storage_options
 
 
 def get_max_column_value(table_or_uri: str | DeltaTable, column_name: str) -> Any:
-    """
-    Retrieves the maximum value of the specified column from a Delta table.
+    """Retrieves the maximum value of the specified column from a Delta table.
 
     Args:
-        table_or_uri (str | DeltaTable): A string URI to a Delta table or a DeltaTable instance.
-        column_name (str): The name of the column.
+        table_or_uri: A string URI to a Delta table or a DeltaTable instance.
+        column_name: The name of the column.
 
     Returns:
         The maximum value of the column, or 0 if the table does not exist.
 
     Example:
-        ```python
-        from blueno.etl import get_max_column_value
+    ```python notest
+    from blueno.utils import get_max_column_value
 
-        max_value = get_max_column_value("path/to/delta_table", "incremental_id")
-        ```
+    max_value = get_max_column_value("path/to/delta_table", "incremental_id")
+    ```
     """
-
     storage_options = get_storage_options(table_or_uri)
 
     if isinstance(table_or_uri, str):

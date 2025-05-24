@@ -4,12 +4,12 @@ from typing import Annotated, Literal, Optional
 from cyclopts import App, Group, Parameter
 
 from blueno import create_pipeline, job_registry
-from blueno.display import task_display
+from blueno.display import _task_display
 
 logger = logging.getLogger(__name__)
 
 
-class CustomFormatter(logging.Formatter):
+class _CustomFormatter(logging.Formatter):
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
     red = "\x1b[31;20m"
@@ -38,7 +38,7 @@ global_args = Group(
 )
 
 
-def setup_logging(log_level: str, display_mode: Optional[str] = None) -> None:
+def _setup_logging(log_level: str, display_mode: Optional[str] = None) -> None:
     handlers = [logging.FileHandler("blueno.log")]
 
     if display_mode == "log" or display_mode is None:
@@ -47,12 +47,12 @@ def setup_logging(log_level: str, display_mode: Optional[str] = None) -> None:
 
     for handler in handlers:
         handler.setLevel(log_level)
-        handler.setFormatter(CustomFormatter())
+        handler.setFormatter(_CustomFormatter())
 
     logging.basicConfig(level=log_level, handlers=handlers)
 
 
-def prepare_blueprints(project_dir: str) -> None:
+def _prepare_blueprints(project_dir: str) -> None:
     job_registry.discover_jobs(project_dir)
 
 
@@ -72,19 +72,21 @@ def run(
         Parameter(group=global_args, help="Log level to use"),
     ] = "INFO",
 ):
-    """
-    Run the blueprints
+    """Run the blueprints.
 
     Args:
-        project_dir (str): Path to the blueprints
-        concurrency (int): Number of concurrent tasks to run
+        project_dir: Path to the blueprints
+        concurrency: Number of concurrent tasks to run
         select: List of blueprints to run. If not provided, all blueprints will be run
         show_dag: Whether to show the DAG of the blueprints
+        display_mode: Show live updates, log output, or no output
+        help: Show this help and exit
+        log_level: Log level to use
+
 
     """
-
-    setup_logging(log_level, display_mode)
-    prepare_blueprints(project_dir)
+    _setup_logging(log_level, display_mode)
+    _prepare_blueprints(project_dir)
 
     if show_dag:
         job_registry.render_dag()
@@ -94,7 +96,7 @@ def run(
     pipeline = create_pipeline(blueprints, subset=select)
 
     if display_mode == "live":
-        with task_display(pipeline, 10):
+        with _task_display(pipeline, 10):
             pipeline.run(concurrency=concurrency)
     else:
         pipeline.run(concurrency=concurrency)
@@ -115,21 +117,21 @@ def run_remote(
         Parameter(group=global_args, help="Log level to use"),
     ] = "INFO",
 ):
-    """
-    Run the blueprints in a Microsoft Fabric remote environment.
+    """Run the blueprints in a Microsoft Fabric remote environment.
+
     It uploads the blueprints to the target lakehouse in a temporary folder, and runs the blueprints from a notebook.
 
     Args:
-        project_dir (str): Path to the blueprints
-        workspace_id (str): The workspace id to use
-        lakehouse_id (str): The lakehouse id to use
-        notebook_id (str): The notebook id to use
-        concurrency (int): Number of concurrent tasks to run
-        v_cores (int): Number of vCores to use
+        project_dir: Path to the blueprints
+        workspace_id: The workspace id to use
+        lakehouse_id: The lakehouse id to use
+        notebook_id: The notebook id to use
+        concurrency: Number of concurrent tasks to run
+        v_cores: Number of vCores to use
         select: List of blueprints to run. If not provided, all blueprints will be run
+        help: Show this help and exit
+        log_level: Log level to use
 
-    https://app.powerbi.com/groups/a66707df-7616-41bb-a542-c7b0f70f4a5d/lakehouses/bf969d43-9b7a-4815-9a80-701afd5e5fb0?experience=power-bi
-    https://app.powerbi.com/groups/a66707df-7616-41bb-a542-c7b0f70f4a5d/synapsenotebooks/368c6467-3a69-4c06-9799-f56dfb01241c?experience=power-bi
     """
     import uuid
 
@@ -138,9 +140,9 @@ def run_remote(
         upload_folder_contents,
     )
 
-    setup_logging(log_level, display_mode=None)
+    _setup_logging(log_level, display_mode=None)
 
-    prepare_blueprints(project_dir)
+    _prepare_blueprints(project_dir)
 
     destination_folder = f"{project_dir.split('/')[-1]}_{str(uuid.uuid4()).split('-')[0]}"
 
@@ -166,9 +168,5 @@ def run_remote(
     run_notebook(workspace_id=workspace_id, notebook_id=notebook_id, execution_data=execution_data)
 
 
-def main():
-    app()
-
-
 if __name__ == "__main__":
-    main()
+    app()

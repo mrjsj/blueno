@@ -136,3 +136,11 @@ cython_debug/
 
 # MacOS
 **/.DS_Store
+
+
+# Unit test output
+basic_example
+path
+source_table
+target_table
+basic_example.parquet

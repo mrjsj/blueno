@@ -1,5 +1,5 @@
 import logging
-from typing import Callable
+from typing import Callable, List, Optional
 
 import polars as pl
 from polars.exceptions import ColumnNotFoundError
@@ -12,31 +12,28 @@ logger = logging.getLogger(__name__)
 
 
 def add_audit_columns(df: DataFrameType, audit_columns: list[Column]) -> DataFrameType:
-    """
-    Adds audit columns to the given DataFrame or LazyFrame based on the configuration.
+    """Adds audit columns to the given DataFrame or LazyFrame based on the configuration.
 
     Args:
-        df (PolarsFrame): The DataFrame or LazyFrame to which audit columns will be added.
-        audit_columns (list[Column]): A list of audit columns to put on the DataFrame.
+        df: The DataFrame or LazyFrame to which audit columns will be added.
+        audit_columns: A list of audit columns to put on the DataFrame.
 
     Returns:
         The DataFrame or LazyFrame with the added audit columns.
 
     Example:
-        ```python
-        from blueno.etl import add_audit_columns
-        import polars as pl
+    ```python
+    from blueno.etl import add_audit_columns, Column
+    import polars as pl
+    from datetime import datetime, timezone
 
-        audit_columns = [
-            Column(
-               "created_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
-            )
-        ]
-        df = pl.DataFrame({"data": [1, 2, 3]})
-        updated_df = add_audit_columns(df, audit_columns)
-        ```
+    audit_columns = [
+        Column("created_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC")))
+    ]
+    df = pl.DataFrame({"data": [1, 2, 3]})
+    updated_df = add_audit_columns(df, audit_columns)
+    ```
     """
-
     df = df.with_columns(
         [audit_column.default_value.alias(audit_column.name) for audit_column in audit_columns]
     )
@@ -45,36 +42,32 @@ def add_audit_columns(df: DataFrameType, audit_columns: list[Column]) -> DataFra
 
 def deduplicate(
     df: DataFrameType,
-    primary_key_columns: str | list[str] | None = None,
-    deduplication_order_columns: str | list[str] | None = None,
-    deduplication_order_descending: bool | list[bool] = True,
+    key_columns: Optional[List[str]] = None,
+    deduplication_order_columns: Optional[List[str]] = None,
+    deduplication_order_descending: bool = True,
 ) -> DataFrameType:
-    """
-    Removes duplicate rows from the DataFrame based on primary key columns.
+    """Removes duplicate rows from the DataFrame based on primary key columns.
 
     Args:
-        df (PolarsFrame): The DataFrame or LazyFrame from which duplicates will be removed.
-        primary_key_columns (list[str] | None): The columns to use as primary keys for deduplication.
-        deduplication_order_columns (list[str] | None): The columns to determine the order of rows for deduplication.
-        deduplication_order_descending (bool | list[bool]): Whether to sort the deduplication order in descending order.
+        df: The DataFrame or LazyFrame from which duplicates will be removed.
+        key_columns: The columns to use as primary keys for deduplication.
+        deduplication_order_columns: The columns to determine the order of rows for deduplication.
+        deduplication_order_descending: Whether to sort the deduplication order in descending order.
 
     Returns:
-        PolarsFrame: The DataFrame or LazyFrame with duplicates removed.
+        The DataFrame or LazyFrame with duplicates removed.
 
     Example:
-        ```python
-        import polars as pl
+    ```python
+    import polars as pl
+    from blueno.etl import deduplicate
 
-        df = pl.DataFrame({
-            "id": [1, 2, 2, 3],
-            "value": ["a", "b", "b", "c"]
-        })
-        deduped_df = deduplicate(df, primary_key_columns=["id"])
-        ```
+    df = pl.DataFrame({"id": [1, 2, 2, 3], "value": ["a", "b", "b", "c"]})
+    deduped_df = deduplicate(df, key_columns=["id"])
+    ```
     """
-
-    if isinstance(primary_key_columns, str):
-        primary_key_columns = [primary_key_columns]
+    if isinstance(key_columns, str):
+        key_columns = [key_columns]
 
     # Temporary fix start
     # See GitHub issue: https://github.com/pola-rs/polars/issues/20209
@@ -86,11 +79,11 @@ def deduplicate(
     else:
         columns = df.schema.names()
 
-    if primary_key_columns:
-        for column in primary_key_columns:
+    if key_columns:
+        for column in key_columns:
             if column not in columns:
                 raise ColumnNotFoundError(
-                    f"unable to find column `{column}`. Valid columns: {columns}"
+                    f"unable to find column `{column}`- valid columns: {columns}"
                 )
 
     # Temporary fix end
@@ -100,7 +93,7 @@ def deduplicate(
             deduplication_order_columns, descending=deduplication_order_descending, nulls_last=True
         )
 
-    df = df.unique(subset=primary_key_columns, keep="first")
+    df = df.unique(subset=key_columns, keep="first")
 
     return df
 
@@ -108,29 +101,30 @@ def deduplicate(
 def normalize_column_names(
     df: DataFrameType, normalization_strategy: Callable[[str], str]
 ) -> DataFrameType:
-    """
-    Normalizes the column names of the DataFrame using a provided normalization strategy.
+    """Normalizes the column names of the DataFrame using a provided normalization strategy.
 
     Args:
-        df (PolarsFrame): The DataFrame or LazyFrame whose column names will be normalized.
-        normalization_strategy (Callable[[str], str]): A callable which takes a string and returns a modified string.
+        df: The DataFrame or LazyFrame whose column names will be normalized.
+        normalization_strategy: A callable which takes a string and returns a modified string.
 
     Returns:
-        PolarsFrame: The DataFrame or LazyFrame with normalized column names.
+        The DataFrame or LazyFrame with normalized column names.
 
     Example:
-        ```python
-        import polars as pl
+    ```python
+    import polars as pl
+    from blueno.etl import normalize_column_names
 
-        def my_strategy(old_column_name: str) -> str:
-            new_name = old_column_name.replace(" ").lower()
-            return new_name
 
-        df = pl.DataFrame({"First Name": [1, 2], "Last Name": [3, 4]})
-        normalized_df = normalize_column_names(df, my_strategy)
-        ```
+    def my_strategy(old_column_name: str) -> str:
+        new_name = old_column_name.replace(" ", "_").lower()
+        return new_name
+
+
+    df = pl.DataFrame({"First Name": [1, 2], "Last Name": [3, 4]})
+    normalized_df = normalize_column_names(df, my_strategy)
+    ```
     """
-
     if isinstance(df, pl.LazyFrame):
         columns = df.collect_schema().names()
     else:
@@ -144,31 +138,29 @@ def normalize_column_names(
 
 
 def reorder_columns_by_suffix(
-    df: DataFrameType, suffix_order: list[str], sort_alphabetically_within_group: bool = True
+    df: DataFrameType, suffix_order: List[str], sort_alphabetically_within_group: bool = True
 ) -> DataFrameType:
-    """
-    Reorders DataFrame columns based on their suffixes according to the provided order.
+    """Reorders DataFrame columns based on their suffixes according to the provided order.
 
     Args:
-        df (PolarsFrame): The DataFrame or LazyFrame whose columns will be reordered.
-        suffix_order (list[str]): List of suffixes in the desired order.
-        sort_alphabetically_within_group (bool): Whether to sort columns alphabetically within each suffix group.
+        df: The DataFrame or LazyFrame whose columns will be reordered.
+        suffix_order: List of suffixes in the desired order.
+        sort_alphabetically_within_group: Whether to sort columns alphabetically within each suffix group.
 
     Returns:
-        PolarsFrame: The DataFrame or LazyFrame with reordered columns.
+        The DataFrame or LazyFrame with reordered columns.
 
     Example:
-        ```python
-        import polars as pl
+    ```python
+    import polars as pl
+    from blueno.etl import reorder_columns_by_suffix
 
-        df = pl.DataFrame({
-            "name_key": ["a", "b"],
-            "age_key": [1, 2],
-            "name_value": ["x", "y"],
-            "age_value": [10, 20]
-        })
-        reordered_df = reorder_columns_by_suffix(df, suffix_order=["_pk", "_fk"])
-        ```
+
+    df = pl.DataFrame(
+        {"name_key": ["a", "b"], "age_key": [1, 2], "name_value": ["x", "y"], "age_value": [10, 20]}
+    )
+    reordered_df = reorder_columns_by_suffix(df, suffix_order=["_pk", "_fk"])
+    ```
     """
     if isinstance(df, pl.LazyFrame):
         columns = df.collect_schema().names()
@@ -194,31 +186,33 @@ def reorder_columns_by_suffix(
 
 
 def reorder_columns_by_prefix(
-    df: DataFrameType, prefix_order: list[str], sort_alphabetically_within_group: bool = True
+    df: DataFrameType, prefix_order: List[str], sort_alphabetically_within_group: bool = True
 ) -> DataFrameType:
-    """
-    Reorders DataFrame columns based on their prefixes according to the provided order.
+    """Reorders DataFrame columns based on their prefixes according to the provided order.
 
     Args:
-        df (PolarsFrame): The DataFrame or LazyFrame whose columns will be reordered.
-        prefix_order (list[str]): List of prefixes in the desired order.
-        sort_alphabetically_within_group (bool): Whether to sort columns alphabetically within each prefix group.
+        df: The DataFrame or LazyFrame whose columns will be reordered.
+        prefix_order: List of prefixes in the desired order.
+        sort_alphabetically_within_group: Whether to sort columns alphabetically within each prefix group.
 
     Returns:
-        PolarsFrame: The DataFrame or LazyFrame with reordered columns.
+        The DataFrame or LazyFrame with reordered columns.
 
     Example:
-        ```python
-        import polars as pl
+    ```python
+    import polars as pl
+    from blueno.etl import reorder_columns_by_prefix
 
-        df = pl.DataFrame({
+    df = pl.DataFrame(
+        {
             "dim_name": ["a", "b"],
             "dim_age": [1, 2],
             "fact_sales": [100, 200],
-            "fact_quantity": [5, 10]
-        })
-        reordered_df = reorder_columns_by_prefix(df, prefix_order=["pk_", "fk_"])
-        ```
+            "fact_quantity": [5, 10],
+        }
+    )
+    reordered_df = reorder_columns_by_prefix(df, prefix_order=["pk_", "fk_"])
+    ```
     """
     if isinstance(df, pl.LazyFrame):
         columns = df.collect_schema().names()
@@ -246,69 +240,72 @@ def reorder_columns_by_prefix(
 def apply_scd_type_2(
     source_df: DataFrameType,
     target_df: DataFrameType,
-    primary_key_columns: str | list[str],
+    primary_key_columns: List[str],
     valid_from_column: str,
     valid_to_column: str,
 ) -> DataFrameType:
-    """
-    Applies Slowly Changing Dimension (SCD) Type 2 logic to merge source and target DataFrames.
+    """Applies Slowly Changing Dimension (SCD) Type 2 logic to merge source and target DataFrames.
+
     SCD Type 2 maintains historical records by creating new rows for changed data while preserving
     the history through valid_from and valid_to dates.
 
     The result maintains the full history of changes while ensuring proper date ranges for overlapping records.
 
     Args:
-        source_df (PolarsFrame): The new/source DataFrame containing updated records.
-        target_df (PolarsFrame): The existing/target DataFrame containing current records.
-        primary_key_columns (str | list[str]): Column(s) that uniquely identify each entity.
-        valid_from_column (str): Column name containing the validity start date.
-        valid_to_column (str): Column name containing the validity end date.
+        source_df: The new/source DataFrame containing updated records.
+        target_df: The existing/target DataFrame containing current records.
+        primary_key_columns: Column(s) that uniquely identify each entity.
+        valid_from_column: Column name containing the validity start date.
+        valid_to_column: Column name containing the validity end date.
 
     Returns:
-        PolarsFrame: A DataFrame containing both current and historical records with updated validity periods.
+        A DataFrame containing both current and historical records with updated validity periods.
 
     Example:
-        ```python
-        import polars as pl
-        from datetime import datetime
+    ```python
+    import polars as pl
+    from blueno.etl import apply_scd_type_2
+    from datetime import datetime
 
-        # Create sample source and target dataframes
-        source_df = pl.DataFrame({
-            "customer_id": [1, 2],
-            "name": ["John Updated", "Jane"],
-            "valid_from": [datetime(2024, 1, 1), datetime(2024, 1, 1)]
-        })
+    # Create sample source and target dataframes
+    source_df = pl.DataFrame({
+        "customer_id": [1, 2],
+        "name": ["John Updated", "Jane Updated"],
+        "valid_from": [datetime(2024, 1, 1), datetime(2024, 1, 1)],
+    })
 
-        target_df = pl.DataFrame({
-            "customer_id": [1, 2],
-            "name": ["John", "Jane"],
-            "valid_from": [datetime(2023, 1, 1), datetime(2023, 1, 1)],
-            "valid_to": [None, None]
-        })
+    target_df = pl.DataFrame({
+        "customer_id": [1, 2],
+        "name": ["John", "Jane"],
+        "valid_from": [datetime(2023, 1, 1), datetime(2023, 1, 1)],
+        "valid_to": [None, None]
+    })
 
-        # Apply SCD Type 2
-        result_df = apply_scd_type_2(
-            source_df=source_df,
-            target_df=target_df,
-            primary_key_columns="customer_id",
-            valid_from_column="valid_from",
-            valid_to_column="valid_to"
-        )
+    # Apply SCD Type 2
+    result_df = apply_scd_type_2(
+        source_df=source_df,
+        target_df=target_df,
+        primary_key_columns="customer_id",
+        valid_from_column="valid_from",
+        valid_to_column="valid_to"
+    )
 
-        print(result_df.sort("customer_id", "valid_from"))
+    print(result_df.sort("customer_id", "valid_from"))
 
-        shape: (4, 4)
-        ┌─────────────┬──────────────┬─────────────────────┬─────────────────────┐
-        │ customer_id ┆ name         ┆ valid_from          ┆ valid_to            │
-        │ ---         ┆ ---          ┆ ---                 ┆ ---                 │
-        │ i64         ┆ str          ┆ datetime[μs]        ┆ datetime[μs]        │
-        ╞═════════════╪══════════════╪═════════════════════╪═════════════════════╡
-        │ 1           ┆ John         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
-        │ 1           ┆ John Updated ┆ 2024-01-01 00:00:00 ┆ null                │
-        │ 2           ┆ Jane         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
-        │ 2           ┆ Jane Updated ┆ 2024-01-01 00:00:00 ┆ null                │
-        └─────────────┴──────────────┴─────────────────────┴─────────────────────┘
-        ```
+    \"\"\"
+    shape: (4, 4)
+    ┌─────────────┬──────────────┬─────────────────────┬─────────────────────┐
+    │ customer_id ┆ name         ┆ valid_from          ┆ valid_to            │
+    │ ---         ┆ ---          ┆ ---                 ┆ ---                 │
+    │ i64         ┆ str          ┆ datetime[μs]        ┆ datetime[μs]        │
+    ╞═════════════╪══════════════╪═════════════════════╪═════════════════════╡
+    │ 1           ┆ John         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
+    │ 1           ┆ John Updated ┆ 2024-01-01 00:00:00 ┆ null                │
+    │ 2           ┆ Jane         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
+    │ 2           ┆ Jane Updated ┆ 2024-01-01 00:00:00 ┆ null                │
+    └─────────────┴──────────────┴─────────────────────┴─────────────────────┘
+    \"\"\"
+    ```
 
     Notes:
         - The function handles overlapping date ranges by adjusting valid_to dates
@@ -358,6 +355,12 @@ def apply_scd_type_2(
 
     # Remove columns from the source df.
     target_records_to_be_updated = target_records_to_be_updated.select(target_columns)
+
+    # Drop valid_to_column of source and target df so they can be CONCAT'd
+    # in case source_df doesn't contain the valid_to_column
+    # It will be recalculated below
+    target_records_to_be_updated = target_records_to_be_updated.drop(valid_to_column, strict=False)
+    source_df = source_df.drop(valid_to_column, strict=False)
 
     upsert_df: DataFrameType = pl.concat([target_records_to_be_updated, source_df])
 

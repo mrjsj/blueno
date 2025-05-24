@@ -1,7 +1,9 @@
+import logging
+from typing import Dict, List, Optional, Union
+
 import polars as pl
 from deltalake import DeltaTable, write_deltalake
 
-from blueno.etl.config import Column
 from blueno.types import DataFrameType
 from blueno.utils import (
     build_merge_predicate,
@@ -9,78 +11,63 @@ from blueno.utils import (
     build_when_matched_update_predicate,
     get_max_column_value,
     get_or_create_delta_table,
+    quote_identifier,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def upsert(
-    table_or_uri: str | DeltaTable,
+    table_or_uri: Union[str, DeltaTable],
     df: DataFrameType,
-    primary_key_columns: str | list[str],
-    update_exclusion_columns: str | list[str] | list[Column] | None = None,
-    predicate_exclusion_columns: str | list[str] | list[Column] | None = None,
-) -> dict[str, str]:
-    """
-    Upserts dataframe into a Delta table using the provided primary key columns.
+    key_columns: List[str],
+    update_exclusion_columns: Optional[List[str]] = None,
+    predicate_exclusion_columns: Optional[List[str]] = None,
+) -> Dict[str, str]:
+    """Updates existing records and inserts new records into a Delta table.
 
     Args:
-        table_or_uri (str): The URI of the target Delta table.
-        df (PolarsFrame): The dataframe to upsert.
-        primary_key_columns (str | list[str]): Primary key column(s) for the upsert.
-        update_exclusion_columns (str | list[str] | None): Columns which will not be updated in the merge.
-        predicate_exclusion_columns (str | list[str] | None): Columns to exclude from the upsert. Difference between source and target of these columns will not trigger an update, however if there is a difference in the other columns, the row will be *also* be updated with the `excluded_columns`.
+        table_or_uri: Path to the Delta table or a DeltaTable instance
+        df: Data to upsert as a Polars DataFrame or LazyFrame
+        key_columns: Column(s) that uniquely identify each record
+        update_exclusion_columns: Columns that should never be updated (e.g., created_at)
+        predicate_exclusion_columns: Columns to ignore when checking for changes
 
     Returns:
-        Result of the merge operation.
+        Dict containing merge operation statistics
 
     Example:
-        ```python
-        from blueno.etl import upsert
-        import polars as pl
+    ```python
+    from blueno.etl import upsert
+    import polars as pl
 
+    # Create sample data
+    data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
 
-        config = get_default_config()
-        data = pl.DataFrame({...})
-
-        upsert(
-            "path/to/delta_table",
-            data,
-            primary_key_columns=["id"],
-        )
-        ```
+    # Upsert data using 'id' as the key column
+    upsert("path/to/upsert_delta_table", data, key_columns=["id"])
+    ```
     """
-
-    if isinstance(primary_key_columns, str):
-        primary_key_columns = [primary_key_columns]
-
     if update_exclusion_columns is None:
         update_exclusion_columns = []
-
-    if isinstance(update_exclusion_columns, str):
-        update_exclusion_columns = [update_exclusion_columns]
 
     if predicate_exclusion_columns is None:
         predicate_exclusion_columns = []
 
-    if isinstance(predicate_exclusion_columns, str):
-        predicate_exclusion_columns = [predicate_exclusion_columns]
-
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
 
-    merge_predicate = build_merge_predicate(primary_key_columns)
+    merge_predicate = build_merge_predicate(key_columns)
 
     predicate_update_columns = [
         column
         for column in df.columns
-        if column
-        not in primary_key_columns + predicate_exclusion_columns + update_exclusion_columns
+        if column not in key_columns + predicate_exclusion_columns + update_exclusion_columns
     ]
     when_matched_update_predicates = build_when_matched_update_predicate(predicate_update_columns)
 
     update_columns = [
-        column
-        for column in df.columns
-        if column not in primary_key_columns + update_exclusion_columns
+        column for column in df.columns if column not in key_columns + update_exclusion_columns
     ]
     when_matched_update_columns = build_when_matched_update_columns(update_columns)
 
@@ -108,24 +95,24 @@ def upsert(
 
 
 def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
-    """
-    Overwrites the entire Delta table with the provided dataframe.
+    """Replaces all data in a Delta table with new data.
 
     Args:
-        table_or_uri (str): The URI of the target Delta table.
-        df (PolarsFrame): The dataframe to write to the Delta table.
+        table_or_uri: Path to the Delta table or a DeltaTable instance
+        df: Data to write as a Polars DataFrame or LazyFrame
 
     Example:
-        ```python
-        from blueno.etl import overwrite
-        import polars as pl
+    ```python
+    from blueno.etl import overwrite
+    import polars as pl
 
-        data = pl.DataFrame({...})
+    # Create sample data
+    data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
 
-        overwrite("path/to/delta_table", data)
-        ```
+    # Replace entire table with new data
+    overwrite("path/to/overwrite_delta_table", data)
+    ```
     """
-
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
     else:
@@ -148,25 +135,26 @@ def replace_range(
     df: DataFrameType,
     range_column: str,
 ) -> None:
-    """
-    Replaces a range of data in the Delta table based on a specified column.
+    """Replaces data within a specific range in the Delta table.
 
     Args:
-        table_or_uri (str): The URI of the target Delta table.
-        df (PolarsFrame): The dataframe to write to the Delta table.
-        range_column (str): The column used to determine the range of data to replace. This replaces the data in the range of the `range_column` in the delta table based off the min and max values of the `range_column` in the dataframe.
+        table_or_uri: Path to the Delta table or a DeltaTable instance
+        df: Data to write as a Polars DataFrame or LazyFrame
+        range_column: Column used to define the range. Records in the table with
+            values between the min and max of this column in df will be replaced
 
     Example:
-        ```python
-        from blueno.etl import replace_range
-        import polars as pl
+    ```python
+    from blueno.etl import replace_range
+    import polars as pl
 
-        data = pl.DataFrame({...})
+    # Create sample data for dates 2024-01-01 to 2024-01-31
+    data = pl.DataFrame({"date": ["2024-01-01", "2024-01-31"], "value": [100, 200]})
 
-        replace_range("path/to/delta_table", data, range_column="date")
-        ```
+    # Replace all records between Jan 1-31
+    replace_range("path/to/replace_range_delta_table", data, range_column="date")
+    ```
     """
-
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
     else:
@@ -175,8 +163,8 @@ def replace_range(
     if isinstance(df, pl.LazyFrame):
         min_value, max_value = (
             df.select(
-                pl.col(range_column).min(),
-                pl.col(range_column).max(),
+                pl.col(range_column).min().alias("min"),
+                pl.col(range_column).max().alias("max"),
             )
             .collect()
             .row(0)
@@ -184,11 +172,13 @@ def replace_range(
 
     else:
         min_value, max_value = df.select(
-            pl.col(range_column).min(),
-            pl.col(range_column).max(),
+            pl.col(range_column).min().alias("min"),
+            pl.col(range_column).max().alias("max"),
         ).row(0)
 
-    predicate = f'{range_column} >= "{min_value}" AND {range_column} <= "{max_value}"'
+    predicate = f"{quote_identifier(range_column)} >= '{min_value}' AND {quote_identifier(range_column)} <= '{max_value}'"
+
+    logger.debug("overwriting with predicate: %s" % predicate)
 
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
@@ -204,24 +194,24 @@ def replace_range(
 
 
 def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
-    """
-    Appends the provided dataframe to the Delta table.
+    """Appends the provided dataframe to the Delta table.
 
     Args:
-        table_or_uri (str): The URI of the target Delta table.
-        df (PolarsFrame): The dataframe to append to the Delta table.
+        table_or_uri: The URI of the target Delta table
+        df: The dataframe to append to the Delta table
 
     Example:
-        ```python
-        from blueno.etl import append
-        import polars as pl
+    ```python
+    from blueno.etl import append
+    import polars as pl
 
-        data = pl.DataFrame({...})
+    # Create sample data
+    data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
 
-        append("path/to/delta_table", data)
-        ```
+    # Append data to table
+    append("path/to/append_delta_table", data)
+    ```
     """
-
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
     else:
@@ -240,25 +230,27 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
 
 
 def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_column: str) -> None:
-    """
-    Appends new data to the Delta table based on an incremental column.
+    """Appends only new records based on an incremental column value.
 
     Args:
-        table_or_uri (str): The URI of the target Delta table.
-        df (PolarsFrame): The dataframe to append to the Delta table.
-        incremental_column (str): The column used to determine new data to append. The source dataframe will only append rows where the value of the `incremental_column` is greater than the max value of the `incremental_column` in the delta table.
+        table_or_uri: Path to the Delta table or a DeltaTable instance
+        df: Data to append as a Polars DataFrame or LazyFrame
+        incremental_column: Column used to identify new records. Only records where
+            this column's value is greater than the maximum value in the existing
+            table will be appended
 
     Example:
-        ```python
-        from blueno.etl import incremental
-        import polars as pl
+    ```python
+    from blueno.etl import incremental
+    import polars as pl
 
-        data = pl.DataFrame({...})
+    # Create sample data
+    data = pl.DataFrame({"timestamp": ["2024-05-24T10:00:00"], "value": [100]})
 
-        incremental("path/to/delta_table", data, incremental_column="timestamp")
-        ```
+    # Append only records newer than existing data
+    incremental("path/to/incremental_delta_table", data, incremental_column="timestamp")
+    ```
     """
-
     schema = df.schema if isinstance(df, pl.DataFrame) else df.collect_schema()
 
     if isinstance(table_or_uri, str):
@@ -281,3 +273,84 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
         data=df,
         mode="append",
     )
+
+
+# def update_outdated_scd2_dimension_keys(
+#         table_or_uri: str | DeltaTable,
+#         dimension_table_or_uri: str | DeltaTable,
+#         foreign_key_column: str,
+#         as_of_column: str,
+#         valid_from_column: str,
+#         modified_time_column: str,
+# ):
+#     """
+#     NOT IMPLEMENTED
+#     Updated foreign keys in a fact table if its corresponding dimension key has been updated.
+#     This can happen for late arriving dimensions
+
+#     Args:
+#         table_or_uri: Of the target fact table
+#         dimension_table_or_uri of the dimension
+#         foreign_key_column: the name of the key between fact and dim
+#         as_of_column: the name in the fact table used for the scd2 key lookup (e.g. transaction date)
+#         valid_from_column: the name of the valid from col in the dim
+#         valid_to_column: the name of the valid to col in the dim
+#         modified_time_column: the name of the col which tracks when a record was last modified. typically the name across all tables as an audit col
+
+
+#     """
+
+#     raise NotImplementedError()
+
+#     # Pseudo code.
+#     # Below code is not complete, because we can't just update one foreign key because the update to "modified time" would break any try to update another foreign key
+#     # Two possible solutions
+#     #  - Just do a full scan of fact table and not filter on modified time col, however this could be inefficient
+#     #  - Check all dimensions one by one before writing back to target table. SOmewhat more complex implementation wise
+#     #    However should be more efficient
+
+#     # Find if any keys in the fact tables has been modified
+#     # dim_df = pl.LazyFrame(dimension_table_or_uri).select(
+#     #     foreign_key_column,
+#     #     pl.col(modified_time_column).name.suffix("__dim")
+#     # )
+#     # # Foreign keys which has been updated
+#     # foreign_keys = (
+#     #     pl.LazyFrame(table_or_uri)
+#     #     .select(
+#     #         foreign_key_column,
+#     #         pl.col(modified_time_column).name.suffix("__fact")
+#     #     )
+#     #     .unique()
+#     #     .join(
+#     #         other=dim_df,
+#     #         on=foreign_key_column
+#     #     )
+#     #     .filter(
+#     #         pl.col(f"{modified_time_column}__dim" > f"{modified_time_column}__fact")
+#     #     )
+#     #     .select(foreign_key_column)
+#     # )
+
+#     # Filter fact df on foreign keys which has been updated
+#     #fact_df = (
+#     #    pl.LazyFrame(table_or_uri)
+#     #    .filter(pl.col(foreign_key_column).is_in(foreign_keys))
+#     #)
+
+#     # Recheck if foreign keys must be updated
+#     #fact_df = (
+#     #    fact_df.join(dim).filter(as_of_col between dim valid from and dim valid to)
+#     #     .filter(old_foreign_key != new_foreign_key)
+#     #)
+
+#     # merge result backinto fact table
+
+#     #dt.merge(
+#     #    predicate = "target.foreign_key = source.old_foreign_key AND target.as_of_col = source.as_of_col"
+#     #).update(
+#     #    updates = {
+#     #        "target.foreign_key": "source.new_foreign_key",
+#     #        "target.modified_time": "timestamp now"
+#     #    }
+#     #)

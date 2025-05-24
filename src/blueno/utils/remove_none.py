@@ -1,15 +1,14 @@
-from typing import Any
+from typing import Dict, List, Union
 
 
-def remove_none(obj: Any) -> Any:
-    """
-    Recursively remove None values from dictionaries and lists.
+def remove_none(obj: Union[Dict, List]) -> Union[Dict, List]:
+    """Recursively remove None values from dictionaries and lists.
 
     Args:
-        obj (Any): The data structure to clean.
+        obj: The data structure to clean.
 
     Returns:
-        Any: A new data structure with None values removed.
+        A new data structure with None values removed.
     """
     if isinstance(obj, dict):
         return {k: remove_none(v) for k, v in obj.items() if v is not None}

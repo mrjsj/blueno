@@ -1,3 +1,5 @@
+"""Collection of utility functions."""
+
 from blueno.utils.quote_identifier import quote_identifier
 
 from .get_max_column_value import get_max_column_value

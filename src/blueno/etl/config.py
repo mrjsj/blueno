@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Callable, Optional
 
 import polars as pl
 from polars.datatypes.classes import DataTypeClass
@@ -10,64 +10,82 @@ from blueno.utils import character_translation, to_snake_case
 
 @dataclass
 class IncrementalColumn:
-    """
-    Represents an incremental column in the configuration.
+    """Represents an incremental column in the configuration.
 
     Attributes:
-        name (str): The name of the incremental column.
-        data_type (pl.DataType): The data type of the incremental column.
+        name: The name of the incremental column.
+        data_type: The data type of the incremental column.
 
     Example:
-        ```python
-        incremental_column = IncrementalColumn("batch_id", pl.Int64)
-        ```
+    ```python
+    from blueno.etl import IncrementalColumn
+    import polars as pl
+
+    incremental_column = IncrementalColumn("batch_id", pl.Int64)
+    ```
     """
 
     name: str
     data_type: DataTypeClass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class KeyColumn:
-    """
-    Represents a key column in the configuration.
+    """Represents a key column in the configuration.
 
     Attributes:
-        suffix (str): The suffix of the key column.
-        data_type (pl.DataType, optional): The data type of the key column.
+        prefix: The prefix of the key column.
+        suffix: The suffix of the key column.
+        data_type: The data type of the key column.
+        default_value: The default value the key column.
 
     Example:
-        ```python
-        key_column = KeyColumn("_sk", pl.Int64)
-        ```
+    Key column with suffix
+    ```python
+    from blueno.etl.config import KeyColumn
+    import polars as pl
+
+    key_column = KeyColumn(suffix="_sk", data_type=pl.Int64, default_value=pl.lit(1))
+    ```
+
+    Key column with prefix
+    ```python
+    from blueno.etl.config import KeyColumn
+    import polars as pl
+
+    key_column = KeyColumn(prefix="PK_", data_type=pl.Int64, default_value=pl.lit(1))
+    ```
     """
 
-    prefix: str | None = None
-    suffix: str | None = None
-    data_type: DataTypeClass | None = None
-    default_value: pl.Expr | None = None
+    prefix: Optional[str] = None
+    suffix: Optional[str] = None
+    data_type: Optional[DataTypeClass] = None
+    default_value: Optional[pl.Expr] = None
 
     def __post_init__(self):
+        """Ensures that at least one of prefix and suffixs are provided."""
         if self.prefix is None and self.suffix is None:
-            raise ValueError("Either prefix or suffix must be provided")
+            raise ValueError("At least one of prefix or suffix must be provided")
 
 
 @dataclass
 class Column:
-    """
-    Represents an audit column in the configuration.
+    """Represents an audit column in the configuration.
 
     Attributes:
-        name (str): The name of the audit column.
-        default_value (pl.Expr): The default value expression for the audit column.
+        name: The name of the audit column.
+        default_value: The default value expression for the audit column.
 
     Example:
-        ```python
-        audit_column = AuditColumn(
-            "__created_at",
-            pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
-        )
-        ```
+    ```python
+    from blueno.etl.config import Column
+    import polars as pl
+    from datetime import datetime, timezone
+
+    audit_column = Column(
+        "__created_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
+    )
+    ```
     """
 
     name: str
@@ -76,18 +94,17 @@ class Column:
 
 @dataclass()
 class Config:
-    """
-    Configuration class that holds various columns and their properties.
+    """Configuration class that holds various columns and their properties.
 
     Attributes:
-        incremental_column (IncrementalColumn): The incremental column configuration.
-        column_created_at (AuditColumn): The created at audit column configuration.
-        column_modified_at (AuditColumn): The modified at audit column configuration.
-        column_deleted_at (AuditColumns): The deleted at audit column configuration.
-        column_valid_from (AuditColumn): The valid from audit column configuration.
-        column_valid_to (AuditColumn): The valid to audit column configuration.
-        character_translation_map (dict[str, str]): A mapping of special characters to their translations.
-        normalization_strategy (Callable[[str], str]): A function that takes a column name and returns the normalized name.
+        incremental_column: The incremental column configuration.
+        column_created_at: The created at audit column configuration.
+        column_modified_at: The modified at audit column configuration.
+        column_deleted_at: The deleted at audit column configuration.
+        column_valid_from: The valid from audit column configuration.
+        column_valid_to: The valid to audit column configuration.
+        character_translation_map: A mapping of special characters to their translations.
+        normalization_strategy: A function that takes a column name and returns the normalized name.
     """
 
     surrogate_key_column: KeyColumn
@@ -106,6 +123,7 @@ class Config:
     normalization_strategy: Callable[[str], str]
 
     def __init__(self):
+        """Creates a Config."""
         self.surrogate_key_column = KeyColumn(
             suffix="_sk", data_type=pl.Int64, default_value=pl.lit(-1)
         )
@@ -165,16 +183,19 @@ class Config:
         )
 
     def get_static_audit_columns(self) -> list[Column]:
-        """
-        Returns a list of static audit columns, namely the `created_at` and `valid_from` columns.
+        """Returns a list of static audit columns, namely the `created_at` and `valid_from` columns.
 
         Returns:
             A list containing the static audit columns.
 
         Example:
-            ```python
-            static_columns = config.get_static_audit_columns()
-            ```
+        ```python
+        from blueno.etl.config import get_default_config
+
+        config = get_default_config()
+
+        static_columns = config.get_static_audit_columns()
+        ```
         """
         return [
             self.column_created_at,
@@ -182,16 +203,19 @@ class Config:
         ]
 
     def get_dynamic_audit_columns(self) -> list[Column]:
-        """
-        Returns a list of dynamic audit columns, namely the `modified_at` and `valid_to` columns.
+        """Returns a list of dynamic audit columns, namely the `modified_at` and `valid_to` columns.
 
         Returns:
             A list containing the dynamic audit columns.
 
         Example:
-            ```python
-            dynamic_columns = config.get_dynamic_audit_columns()
-            ```
+        ```python
+        from blueno.etl.config import get_default_config
+
+        config = get_default_config()
+
+        dynamic_columns = config.get_dynamic_audit_columns()
+        ```
         """
         return [
             self.column_modified_at,
@@ -200,16 +224,19 @@ class Config:
         ]
 
     def get_audit_columns(self) -> list[Column]:
-        """
-        Returns a list of all audit columns, namely the `created_at`, `modified_at`, `valid_from`, and `valid_to` columns.
+        """Returns a list of all audit columns, namely the `created_at`, `modified_at`, `valid_from`, and `valid_to` columns.
 
         Returns:
             A list containing all audit columns.
 
         Example:
-            ```python
-            all_columns = config.get_audit_columns()
-            ```
+        ```python
+        from blueno.etl.config import get_default_config
+
+        config = get_default_config()
+
+        all_columns = config.get_audit_columns()
+        ```
         """
         return [
             self.column_created_at,
@@ -228,34 +255,51 @@ def create_config(
     valid_from: Column,
     valid_to: Column,
 ) -> Config:
-    """
-    Creates a new Config instance with the provided audit and incremental columns.
+    """Creates a new Config instance with the provided audit and incremental columns.
 
     Args:
-        incremental_column (IncrementalColumn): The incremental column.
-        created_at (AuditColumn): The created at audit column.
-        modified_at (AuditColumn): The modified at audit column.
-        deleted_at (AuditColumn): The deleted at audit column.
-        valid_from (AuditColumn): The valid from audit column.
-        valid_to (AuditColumn): The valid to audit column.
+        incremental_column: The incremental column.
+        created_at: The created at audit column.
+        modified_at: The modified at audit column.
+        deleted_at: The deleted at audit column.
+        valid_from: The valid from audit column.
+        valid_to: The valid to audit column.
 
     Returns:
         A new instance of the Config class.
 
     Example:
-        ```python
-        incremental_column = IncrementalColumn("batch_id", pl.Int64)
-        ...
-        valid_to = AuditColumn("__valid_to", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC")))
-        config = create_config(
-            incremental_column,
-            created_at,
-            modified_at,
-            deleted_at,
-            valid_from,
-            valid_to,
-        )
-        ```
+    ```python
+    from blueno.etl.config import IncrementalColumn, Column, create_config
+    import polars as pl
+    from datetime import datetime, timezone
+
+    incremental_column = IncrementalColumn("batch_id", pl.Int64)
+    created_at = Column(
+        "__created_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
+    )
+    modified_at = Column(
+        "__modified_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
+    )
+    deleted_at = Column(
+        "__deleted_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
+    )
+    valid_from = Column(
+        "__valid_from", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
+    )
+    valid_to = Column(
+        "__valid_to", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC"))
+    )
+
+    config = create_config(
+        incremental_column,
+        created_at,
+        modified_at,
+        deleted_at,
+        valid_from,
+        valid_to,
+    )
+    ```
     """
     config = Config()
     config.incremental_column = incremental_column
@@ -269,15 +313,16 @@ def create_config(
 
 
 def get_default_config() -> Config:
-    """
-    Returns a default Config instance with preset values.
+    """Returns a default Config instance with preset values.
 
     Returns:
         A default instance of the Config class.
 
     Example:
-        ```python
-        default_config = get_default_config()
-        ```
+    ```python
+    from blueno.etl.config import get_default_config
+
+    default_config = get_default_config()
+    ```
     """
     return Config()

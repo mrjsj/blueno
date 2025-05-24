@@ -9,8 +9,7 @@ logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def get_access_token(audience: str) -> str:
-    """
-    Retrieves an access token for a given audience.
+    """Retrieves an access token for a given audience.
 
     This function attempts to obtain an access token for a given audience.
     It first checks if the code is running in a Microsoft Fabric notebook environment
@@ -18,7 +17,6 @@ def get_access_token(audience: str) -> str:
     is not available, it falls back to using the `DefaultAzureCredential` from the Azure SDK
     to fetch the token.
     """
-
     try:
         logger.debug("trying to get token using notebookutils")
         import notebookutils  # type: ignore
@@ -55,15 +53,12 @@ def get_access_token(audience: str) -> str:
 
 
 def get_onelake_access_token() -> str:
-    """
-    Alias for `get_azure_storage_access_token`
-    """
+    """Alias for `get_azure_storage_access_token`."""
     return get_azure_storage_access_token()
 
 
 def get_azure_storage_access_token() -> str:
-    """
-    Retrieves an access token for Azure Storage.
+    """Retrieves an access token for Azure Storage.
 
     This function attempts to obtain an access token for accessing Azure storage.
     It first checks if the `AZURE_STORAGE_TOKEN` environment variable is set.
@@ -73,7 +68,6 @@ def get_azure_storage_access_token() -> str:
     Returns:
         The access token used for authenticating requests to Azure Storage.
     """
-
     logger.debug("trying to get token using AZURE_STORAGE_TOKEN environment variable")
     token = os.environ.get("AZURE_STORAGE_TOKEN")
     if token:
@@ -90,8 +84,7 @@ def get_azure_storage_access_token() -> str:
 
 
 def get_fabric_bearer_token() -> str:
-    """
-    Retrieves a bearer token for Fabric (Power BI) API.
+    """Retrieves a bearer token for Fabric (Power BI) API.
 
     This function attempts to obtain a bearer token for authenticating requests to the
     Power BI API. It first checks if the code is running in a Microsoft Fabric
@@ -107,8 +100,7 @@ def get_fabric_bearer_token() -> str:
 
 
 def get_azure_devops_access_token() -> str:
-    """
-    Retrieves a bearer token for Azure DevOps.
+    """Retrieves a bearer token for Azure DevOps.
 
     This function attempts to obtain a bearer token for authenticating requests to Azure DevOps.
 
@@ -120,29 +112,27 @@ def get_azure_devops_access_token() -> str:
 
 
 def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
-    """
-    Retrieves storage options including a bearer token for Azure Storage.
+    """Retrieves storage options including a bearer token for Azure Storage.
 
     This function calls `get_azure_storage_access_token` to obtain a bearer token
     and returns a dictionary containing the token.
 
     Args:
-        table_or_uri (str): The URI of the Delta table.
+        table_or_uri: The URI of the Delta table.
 
     Returns:
         A dictionary containing the storage options for Azure Storage.
 
     Example:
-        **Retrieve storage options**
-        ```python
-        from blueno import get_storage_options
+    **Retrieve storage options**
+    ```python notest
+    from blueno.auth import get_storage_options
 
-        options = get_storage_options("abfss://path/to/delta_table")
-        options
-        {"bearer_token": "your_token_here"}
-        ```
+    options = get_storage_options("abfss://path/to/delta_table")
+    options
+    {"bearer_token": "your_token_here"}
+    ```
     """
-
     if isinstance(table_or_uri, DeltaTable):
         table_or_uri = table_or_uri.table_uri
 

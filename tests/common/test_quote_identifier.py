@@ -1,4 +1,4 @@
-from blueno.utils.quote_identifier import quote_identifier
+from blueno.utils import quote_identifier
 
 
 def test_quote_character():

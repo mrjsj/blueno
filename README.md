@@ -64,11 +64,11 @@ lakehouse_name = ...
 lakehouse_base_uri = f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/{lakehouse_name}.Lakehouse/Tables"
 
 @blueprint(
-    table_uri=f"{storage_base_uri}/silver/customer",
+    table_uri=f"{lakehouse_base_uri}/silver/customer",
     primary_keys=["customer_id"],
     write_mode="overwrite",
 )
-def silver_customer(self: Blueprint, bronze_customer: pl.DataFrame) -> pl.DataFrame
+def silver_customer(self: Blueprint, bronze_customer: pl.DataFrame) -> pl.DataFrame:
     
     # Deduplicate customers
     df = bronze_customers.unique(subset=self.primary_keys)

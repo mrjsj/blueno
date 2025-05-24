@@ -13,8 +13,11 @@ blueno-q:
 ty:
 	uv run ty check src --error-on-warning
 
-test:
+unit-test:
 	uv run pytest -s -vvvv tests
+
+docs-test:
+	uv run pytest -s -vvvv --markdown-docs docs src
 
 lint:
 	uv run ruff check --fix
@@ -30,6 +33,6 @@ serve-docs:
 	uv run mkdocs serve
 
 run:
-	uv run pytest -s -vvvv tests/blueprints/test_blueprints.py::test_blueprint_simple_example
+	uv run pytest -s -vvvv tests/blueprints/test_blueprints.py::test_blueprint_simple_example --doctest-modules
 
-pre-commit:	lint format ty test docs
+pre-commit:	lint format ty unit-test docs-test docs

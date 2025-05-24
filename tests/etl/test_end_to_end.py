@@ -43,9 +43,7 @@ def test_end_to_end(tmp_path):
     filtered_df = source_df.filter(pl.col("batch_id") > (incremental_column_value or 0))
 
     # Deduplicate the source dataframe
-    deduped_df = deduplicate(
-        filtered_df, primary_key_columns="ID", deduplication_order_columns="batch_id"
-    )
+    deduped_df = deduplicate(filtered_df, key_columns="ID", deduplication_order_columns="batch_id")
 
     # Normalize the column names
 
@@ -59,7 +57,7 @@ def test_end_to_end(tmp_path):
     upsert(
         target_table_path,
         audit_df,
-        primary_key_columns="id",
+        key_columns=["id"],
         update_exclusion_columns=config.get_static_audit_columns(),
         predicate_exclusion_columns=config.get_dynamic_audit_columns(),
     )

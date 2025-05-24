@@ -7,7 +7,7 @@ from polars.exceptions import ColumnNotFoundError
 from polars.testing import assert_frame_equal
 
 from blueno.etl import get_default_config
-from blueno.etl.transform import (
+from blueno.etl import (
     add_audit_columns,
     apply_scd_type_2,
     deduplicate,
@@ -168,7 +168,7 @@ def test_deduplicate_single_key():
 
     actual_df = deduplicate(
         df,
-        primary_key_columns="id",
+        key_columns="id",
         deduplication_order_columns="timestamp",
         deduplication_order_descending=True,
     )
@@ -190,7 +190,7 @@ def test_deduplicate_multiple_keys():
 
     actual_df = deduplicate(
         df,
-        primary_key_columns=["id", "type"],
+        key_columns=["id", "type"],
         deduplication_order_columns="timestamp",
         deduplication_order_descending=True,
     )
@@ -205,7 +205,7 @@ def test_deduplicate_multiple_keys():
 def test_deduplicate_no_duplicates():
     df = pl.DataFrame({"id": [1, 2, 3], "value": ["a", "b", "c"]})
 
-    actual_df = deduplicate(df, primary_key_columns="id")
+    actual_df = deduplicate(df, key_columns="id")
     assert_frame_equal(actual_df, df, check_row_order=False)
 
 
@@ -213,7 +213,7 @@ def test_deduplicate_invalid_column():
     df = pl.DataFrame({"id": [1, 2, 3], "value": ["a", "b", "c"]})
 
     with pytest.raises(ColumnNotFoundError):
-        deduplicate(df, primary_key_columns="non_existent")
+        deduplicate(df, key_columns="non_existent")
 
 
 def test_normalize_column_names():

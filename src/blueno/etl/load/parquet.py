@@ -1,31 +1,30 @@
+from typing import List, Optional
+
 import polars as pl
 
 from blueno.auth import get_storage_options
 from blueno.types import DataFrameType
 
 
-def write_parquet(uri: str, df: DataFrameType, partition_by: list[str] | None = None):
-    """
-    Overwrites the entire parquet file or directory (if using `partition_by`) with the provided dataframe.
+def write_parquet(uri: str, df: DataFrameType, partition_by: Optional[List[str]] = None) -> None:
+    """Overwrites the entire parquet file or directory (if using `partition_by`) with the provided dataframe.
 
     Args:
-        uri (str): The file or directory URI to write to. This should be a path if using `partition_by`.
-        df (DataFrameType): The dataframe to write.
-        partition_by (list[str], optional): Column(s) to partition by.
+        uri: The file or directory URI to write to. This should be a path if using `partition_by`
+        df: The dataframe to write
+        partition_by: Column(s) to partition by
 
     Example:
-        ```python
-        from blueno.etl import write_parquet
-        import polars as pl
+    ```python
+    from blueno.etl import write_parquet
+    import polars as pl
 
-        data = pl.DataFrame({...})
+    # Create sample data with dates
+    data = pl.DataFrame({"year": [2024, 2024, 2024], "month": [1, 2, 3], "value": [100, 200, 300]})
 
-        write_parquet(
-            uri="path/to/parquet",
-            df=data,
-            partition_by=["year", "month"],
-        )
-        ```
+    # Write data partitioned by year and month
+    write_parquet(uri="path/to/parquet", df=data, partition_by=["year", "month"])
+    ```
     """
     storage_options = get_storage_options(uri)
 

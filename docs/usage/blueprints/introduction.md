@@ -7,12 +7,12 @@ When a function is decorated with the `blueprint` decorator, it is automatically
 A simple example is a "source" blueprint. It has no dependencies and can thus be executed as the first blueprint in the DAG.
 The example just returns a DataFrame, however, it could be any source, e.g. reading from external storage, a REST API or a database, however it **must** return a DataFrame.
 
-```python
+```python notest
 from blueno import blueprint, Blueprint, DataFrameType
 
 
 @blueprint
-def bronze_product() -> DataFrameType:
+def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
         {
             "a": [1, 2, 3],
@@ -42,9 +42,9 @@ In addition, the blueprint decorator is now supplied with the `table_uri` parame
 from blueno import blueprint, Blueprint, DataFrameType
 
 @blueprint(
-    table_uri="lakehouse/bronze/product"
+    table_uri="lakehouse/bronze/products"
 )
-def bronze_product() -> DataFrameType:
+def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
         {
             "product_id": [1, 2, 3],
@@ -56,9 +56,9 @@ def bronze_product() -> DataFrameType:
     return df
 
 @blueprint(
-    table_uri="lakehouse/bronze/customer"
+    table_uri="lakehouse/bronze/customers"
 )
-def bronze_customer() -> DataFrameType:
+def bronze_customers() -> DataFrameType:
     df = pl.DataFrame(
         {
             "customer_id": ["CUST01", "CUST02", "CUST03"],
@@ -101,6 +101,9 @@ In addition, transactions with a `quantity` of zero are removed.
 
 
 ```python
+from blueno import blueprint, Blueprint
+from blueno.types import DataFrameType
+
 @blueprint(
     table_uri="lakehouse/silver/products",
     primary_keys=["product_id"],
@@ -122,7 +125,7 @@ def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFr
 
 
 @blueprint(
-    table_uri="lakehouse/silver/products",
+    table_uri="lakehouse/silver/transactions",
     primary_keys=["product_id"],
 )
 def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
@@ -144,6 +147,9 @@ In the `silver_products` and `silver_customers` blueprints you can also see the 
 Lastly, we will add the metrics table in the gold layer, which combines the three silver tables:
 
 ```python
+from blueno import blueprint
+from blueno.types import DataFrameType
+
 @blueprint(
     table_uri="lakehouse/gold/sales_metrics",
     write_mode="incremental",
@@ -200,8 +206,10 @@ The resulting DAG is:
 
 And we can see the resulting sales metrics table by printing to console.
 
-```python
-df = pl.read_delta("/lakehouse/gold/sales_metrics")
+```python notest
+import polars as pl
+
+df = pl.read_delta("lakehouse/gold/sales_metrics")
 print(df)
 ```
 
@@ -218,7 +226,10 @@ You can also read and write directly in a Microsoft Fabric Lakehouse (OneLake) o
 Simply change the path of your blueprint `table_uri` to:
 
 ```python
-abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/{lakehouse_name}.Lakehouse/Tables
+workspace_name = "MyWorkspace"
+lakehouse_name = "MyLakehouse"
+
+table_uri= f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/{lakehouse_name}.Lakehouse/Tables"
 ```
 
 You must have the Azure CLI installed and be logged in.

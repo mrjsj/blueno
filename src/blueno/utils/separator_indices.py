@@ -2,17 +2,19 @@ def separator_indices(string: str, separator: str) -> list[int]:
     """Find indices of a separator character in a string, ignoring separators inside quotes.
 
     Args:
-        string (str): The input string to search through
-        separator (str): The separator character to find
+        string: The input string to search through
+        separator: The separator character to find
 
     Returns:
         A list of indices where the separator character appears outside of quotes
 
     Example:
-        ```python
-        separator_indices('a,b,"c,d",e', ',')
-        [1, 8]
-        ```
+    ```python
+    from blueno.utils import separator_indices
+
+    separator_indices('a,b,"c,d",e', ",")
+    [1, 8]
+    ```
     """
     inside_double_quotes = False
     inside_single_quotes = False

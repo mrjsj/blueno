@@ -1,3 +1,5 @@
+from typing import TypeAlias, Union
+
 import polars as pl
 
-DataFrameType = pl.DataFrame | pl.LazyFrame
+DataFrameType: TypeAlias = Union[pl.DataFrame, pl.LazyFrame]

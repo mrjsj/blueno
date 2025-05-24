@@ -67,14 +67,18 @@ nav:
     - usage/cli.md
     - usage/etl.md
   - API Reference:
-      - reference/blueprints.md
+      - Orchestration:
+        - reference/orchestration/index.md
+        - reference/orchestration/blueprint.md
+        - reference/orchestration/task.md
       - ETL:
         - reference/etl/index.md
         - reference/etl/read.md
         - reference/etl/transform.md
         - reference/etl/load.md      
       - reference/authentication.md
-      - reference/utilities.md                  
+      - reference/utilities.md
+      - reference/cli.md
 
 # Formatting options
 markdown_extensions:

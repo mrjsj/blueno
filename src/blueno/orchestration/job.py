@@ -8,15 +8,21 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 
 # from blueno.blueprints.blueprint import Blueprint
 from blueno.exceptions import DuplicateJobError, JobNotFoundError
+from blueno.types import DataFrameType
 
 logger = logging.getLogger(__name__)
 
 
 def track_step(func):
+    """A wrapper which logs when a function was called, and when a function call ended.
+
+    Also sets the current step.
+    """
+
     def wrapper(self, *args, **kwargs):
         logger.debug("started step %s for %s %s", func.__name__, self.type, self.name)
         if self._current_step:
@@ -32,11 +38,13 @@ def track_step(func):
 
 @dataclass(kw_only=True)
 class BaseJob(ABC):
+    """The base class for a Job."""
+
     name: str
     priority: int
-    _current_step: str | None = None
-    _transform_fn: Callable = lambda: None
-    _depends_on: list[BaseJob] | None = None
+    _current_step: Optional[str] = None
+    _transform_fn: Callable[..., DataFrameType]
+    _depends_on: Optional[List[BaseJob]] = None
 
     @track_step
     def _register(self, registry: JobRegistry) -> None:
@@ -49,15 +57,17 @@ class BaseJob(ABC):
 
     @property
     def current_step(self) -> str:
+        """The current step which the job is executing."""
         return self._current_step
 
     @property
     def type(self) -> str:
+        """The type of the job."""
         return type(self).__name__
 
     @property
-    # @lru_cache(maxsize=1)
     def depends_on(self) -> list[BaseJob]:
+        """The other jobs which the job depends on."""
         if self._depends_on is not None:
             return self._depends_on
 
@@ -92,21 +102,28 @@ class BaseJob(ABC):
 
     @abstractmethod
     def run(self) -> None:
-        """What to do when job is run."""
+        """What to do when job is run.
+
+        This method should be implemented by concrete job classes to define their execution logic.
+        """
         pass
 
 
 @dataclass
 class JobRegistry:
+    """JobRegistry."""
+
     _instance: Optional[JobRegistry] = None
     jobs: dict[str, BaseJob] = field(default_factory=dict)
 
     def __new__(cls):
+        """Singleton method."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
     def discover_py_blueprints(self, path: str | pathlib.Path) -> None:
+        """Discovers jobs from all .py files in the provided path."""
         base_dir = pathlib.Path(path).absolute()
 
         import os
@@ -229,6 +246,7 @@ class JobRegistry:
     #         job_registry.register(blueprint)
 
     def discover_jobs(self, path: str | pathlib.Path = "blueprints") -> None:
+        """Discover jobs from with possible discovery methods."""
         self.discover_py_blueprints(path)
         # self.discover_sql_blueprints(path)
 
@@ -242,6 +260,10 @@ class JobRegistry:
     #     self.jobs[job.name] = job
 
     def render_dag(self):
+        """Builds a DAG for the currently registered jobs, and shows it.
+
+        Requires graphviz.
+        """
         try:
             import graphviz
         except ImportError as e:

@@ -1,5 +1,5 @@
 from blueno.etl import get_default_config
-from blueno.utils.string_normalization import character_translation, to_snake_case
+from blueno.utils import character_translation, to_snake_case
 
 
 def test_to_snake_case():

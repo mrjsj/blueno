@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any
+from typing import Any, Dict, Optional
 
 import requests
 
@@ -15,8 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 def paginated_get_request(endpoint: str, data_key: str) -> list[dict[str, Any]]:
-    """
-    Retrieves paginated data from the specified API endpoint.
+    """Retrieves paginated data from the specified API endpoint.
 
     This function makes repeated GET requests to the specified endpoint of the
     Fabric REST API, handling pagination automatically. It uses a bearer token
@@ -24,8 +23,8 @@ def paginated_get_request(endpoint: str, data_key: str) -> list[dict[str, Any]]:
     to a list. Pagination continues until no `continuationToken` is returned.
 
     Args:
-        endpoint (str): The API endpoint to retrieve data from.
-        data_key (str): The key in the response JSON that contains the list of data to be returned.
+        endpoint: The API endpoint to retrieve data from.
+        data_key: The key in the response JSON that contains the list of data to be returned.
 
     Returns:
         A list of dictionaries containing the data from all pages.
@@ -58,8 +57,7 @@ def paginated_get_request(endpoint: str, data_key: str) -> list[dict[str, Any]]:
 def get_item_from_paginated_get_request(
     endpoint: str, data_key: str, item_key: str, item_value: str
 ) -> dict[str, Any]:
-    """
-    Recursively paginates the API endpoint until specified item is found and returns it.
+    """Recursively paginates the API endpoint until specified item is found and returns it.
 
     This function makes repeated GET requests to the specified endpoint of the
     Fabric REST API, handling pagination automatically. It uses a bearer token
@@ -68,10 +66,10 @@ def get_item_from_paginated_get_request(
     `continuationToken` is returned.
 
     Args:
-        endpoint (str): The API endpoint to retrieve data from.
-        data_key (str): The key in the response JSON that contains the list of data to be returned.
-        item_key (str): The key in the data dictionary that contains the item to be returned.
-        item_value (str): The value of the item to be returned.
+        endpoint: The API endpoint to retrieve data from.
+        data_key: The key in the response JSON that contains the list of data to be returned.
+        item_key: The key in the data dictionary that contains the item to be returned.
+        item_value: The value of the item to be returned.
 
     Returns:
         A dictionary containing the item to be returned.
@@ -104,16 +102,15 @@ def get_item_from_paginated_get_request(
 
 
 def get_request(endpoint: str, content_only: bool = True) -> requests.Response | dict[str, Any]:
-    """
-    Retrieves data from a specified API endpoint.
+    """Retrieves data from a specified API endpoint.
 
     This function makes a GET request to the specified endpoint of the Azure Fabric API,
     using a bearer token for authentication. It returns the JSON response as a list of
     dictionaries containing the data returned by the API.
 
     Args:
-        endpoint (str): The API endpoint to send the GET request to.
-        content_only (bool): Whether to return the content of the response only.
+        endpoint: The API endpoint to send the GET request to.
+        content_only: Whether to return the content of the response only.
 
     Returns:
         A list of dictionaries containing the data returned from the API or the response object.
@@ -143,17 +140,16 @@ def get_request(endpoint: str, content_only: bool = True) -> requests.Response |
 def post_request(
     endpoint: str, data: dict[str, str], content_only: bool = True
 ) -> requests.Response | dict[str, Any]:
-    """
-    Sends a POST request to a specified API endpoint.
+    """Sends a POST request to a specified API endpoint.
 
     This function makes a POST request to the specified endpoint of the Azure Fabric API,
     using a bearer token for authentication. It sends the provided data in JSON format
     and returns either the JSON response or the full response object.
 
     Args:
-        endpoint (str): The API endpoint to send the POST request to.
-        data (dict[str, str]): The data to be sent in the request body.
-        content_only (bool): Whether to return the content of the response only.
+        endpoint: The API endpoint to send the POST request to.
+        data: The data to be sent in the request body.
+        content_only: Whether to return the content of the response only.
 
     Returns:
         Either the JSON response as a dictionary or the full response object.
@@ -182,17 +178,16 @@ def post_request(
 def patch_request(
     endpoint: str, data: dict[str, str], content_only: bool = True
 ) -> requests.Response | dict[str, Any]:
-    """
-    Sends a PATCH request to a specified API endpoint.
+    """Sends a PATCH request to a specified API endpoint.
 
     This function makes a PATCH request to the specified endpoint of the Azure Fabric API,
     using a bearer token for authentication. It sends the provided data in JSON format
     and returns either the JSON response or the full response object.
 
     Args:
-        endpoint (str): The API endpoint to send the PATCH request to.
-        data (dict[str, str]): The data to be sent in the request body.
-        content_only (bool): Whether to return the content of the response only.
+        endpoint: The API endpoint to send the PATCH request to.
+        data: The data to be sent in the request body.
+        content_only: Whether to return the content of the response only.
 
     Returns:
         Either the JSON response as a dictionary or the full response object.
@@ -219,14 +214,13 @@ def patch_request(
 
 
 def delete_request(endpoint: str) -> requests.Response:
-    """
-    Sends a DELETE request to a specified API endpoint.
+    """Sends a DELETE request to a specified API endpoint.
 
     This function makes a DELETE request to the specified endpoint of the Azure Fabric API,
     using a bearer token for authentication.
 
     Args:
-        endpoint (str): The API endpoint to send the DELETE request to.
+        endpoint: The API endpoint to send the DELETE request to.
 
     Returns:
         The response object from the DELETE request.
@@ -258,11 +252,11 @@ def delete_request(endpoint: str) -> requests.Response:
 #     Runs a notebook in the specified workspace.
 
 #     Args:
-#         workspace_id (str): The ID of the workspace where the pipeline is located.
-#         pipeline_id (str): The ID of the pipeline to run.
-#         parameters (dict[str, Any], optional): Parameters to pass to the pipeline. Defaults to None.
-#         poll_interval (float): The interval in seconds to poll the pipeline status. Defaults to 5.0.
-#         timeout (float): The maximum time in seconds to wait for the pipeline to complete. Defaults to 300.0.
+#         workspace_id: The ID of the workspace where the pipeline is located.
+#         pipeline_id: The ID of the pipeline to run.
+#         parameters: Parameters to pass to the pipeline. Defaults to None.
+#         poll_interval: The interval in seconds to poll the pipeline status. Defaults to 5.0.
+#         timeout: The maximum time in seconds to wait for the pipeline to complete. Defaults to 300.0.
 
 #     Returns:
 #         The response object from the POST request.
@@ -330,19 +324,18 @@ def delete_request(endpoint: str) -> requests.Response:
 def run_notebook(
     notebook_id: str,
     workspace_id: str,
-    execution_data: dict[str, Any] | None = None,
+    execution_data: Optional[Dict[str, Any]] = None,
     poll_interval: float = 5.0,
     timeout: float = 5 * 60.0,
 ) -> requests.Response:
-    """
-    Runs a notebook in the specified workspace.
+    """Runs a notebook in the specified workspace.
 
     Args:
-        notebook_id (str): The ID of the notebook to run.
-        workspace_id (str): The ID of the workspace where and notebook is located.
-        execution_data (dict[str, Any], optional): Execution data to pass to the notebook. Defaults to None.
-        poll_interval (float): The interval in seconds to poll the pipeline status. Defaults to 5.0.
-        timeout (float): The maximum time in seconds to wait for the pipeline to complete. Defaults to 300.0.
+        notebook_id: The ID of the notebook to run.
+        workspace_id: The ID of the workspace where and notebook is located.
+        execution_data: Execution data to pass to the notebook. Defaults to None.
+        poll_interval: The interval in seconds to poll the pipeline status. Defaults to 5.0.
+        timeout: The maximum time in seconds to wait for the pipeline to complete. Defaults to 300.0.
 
     Returns:
         The response object from the POST request.
@@ -434,18 +427,19 @@ def run_notebook(
 def upload_folder_contents(
     workspace_name: str, lakehouse_name: str, source_folder: str, destination_folder: str
 ) -> None:
-    """
-    Uploads the contents of a local folder to a specified destination folder in OneLake using AzCopy.
+    """Uploads the contents of a local folder to a specified destination folder in OneLake using AzCopy.
+
     Based on: https://medium.com/microsoftazure/ingest-data-into-microsoft-onelake-using-azcopy-a6e0e199feee
 
     Args:
-        source_folder (str): The path to the local folder to upload.
-        destination_folder (str): The destination folder in OneLake where the contents will be uploaded.
+        workspace_name: The workspace name to upload to.
+        lakehouse_name: The lakehouse name to upload to.
+        source_folder: The path to the local folder to upload.
+        destination_folder: The destination folder in OneLake where the contents will be uploaded.
 
     Raises:
         requests.exceptions.RequestException: If the HTTP request fails or returns an error.
     """
-
     # Check if AzCopy is installed
     if not shutil.which("azcopy"):
         logger.error(

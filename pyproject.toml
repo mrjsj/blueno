@@ -43,15 +43,25 @@ azure = [
 
 [tool.ruff]
 line-length = 100
-include = ["src/**/*.py", "tests/**/*.py"]
+include = ["src/**/*.py"]
+
 
 [tool.ruff.lint]
-extend-select = ["Q001", "I001", "G004"]
+extend-select = ["Q001", "I001", "G004", "D"]
+ignore = ["D100"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.pytest.ini_options]
 pythonpath = [
   "src",
 ]
+log_cli = true
+log_cli_level = "INFO"
 
 [dependency-groups]
 docs = [
@@ -64,7 +74,9 @@ docs = [
 dev = [
     "freezegun>=1.5.1",
     "graphviz>=0.20.3",
+    "mkdocs-gen-files>=0.5.0",
     "pytest>=8.3.5",
+    "pytest-markdown-docs>=0.9.0",
     "python-dotenv>=1.1.0",
     "ruff>=0.11.10",
     "ty>=0.0.1a4",

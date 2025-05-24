@@ -1,7 +1,6 @@
 import polars as pl
 
 from blueno import Blueprint, DataFrameType, blueprint
-
 from . import config
 
 
@@ -74,7 +73,6 @@ def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
     return df
 
 
-
 @blueprint(
     table_uri=f"{config.storage_base_path}/gold/sales_metrics",
     write_mode="incremental",
@@ -83,12 +81,10 @@ def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
 def gold_sales_metrics(
     silver_transactions: DataFrameType,
     silver_customers: DataFrameType,
-    silver_products: DataFrameType
+    silver_products: DataFrameType,
 ) -> DataFrameType:
-    
     df = (
-        silver_transactions
-        .join(silver_customers, on="customer_id", how="left")
+        silver_transactions.join(silver_customers, on="customer_id", how="left")
         .join(silver_products, on="product_id", how="left")
         .group_by(
             "transaction_date",

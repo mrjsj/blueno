@@ -18,16 +18,16 @@ df = pl.DataFrame({
     "id": [1, 2, 3],
     "name": ["Alice", "Bob", "Charlie"]
 })
-df.write_parquet("source.parquet")
+df.write_parquet("basic_example.parquet")
 
 # Read the source parquet file
-source_df = read_parquet("source.parquet")
+source_df = read_parquet("basic_example.parquet")
 
 # Upsert to a target table
 upsert(
-    table_or_uri="target_table",
+    table_or_uri="basic_example",
     df=source_df,
-    primary_key_columns="id"
+    key_columns=["id"]
 )
 ```
 
@@ -46,14 +46,14 @@ The following code will read the delta table, deduplicate the rows, normalize th
 The result will be a new row for AliceS and BobB in the target table.
 
 ```python
+import polars as pl
 from blueno.etl import (
-    get_default_config,
-    read_delta,
-    get_incremental_column_value,
+    read_delta, upsert, get_default_config
+)
+from blueno.etl import (
     deduplicate,
     normalize_column_names,
     add_audit_columns,
-    upsert,
 )
 
 source_table_path = "source_table"
@@ -65,7 +65,7 @@ source_df = pl.DataFrame({
     "FirstName": ["Alice", "Bob", "Charlie", "AliceS", "BobB"],
     "batch_id": [1, 1, 1, 2, 2]
 })
-source_df.write_delta(source_table_path)
+source_df.write_delta(source_table_path, mode="overwrite")
 
 # Get the default config
 config = get_default_config()
@@ -73,29 +73,22 @@ config = get_default_config()
 # Read the source delta table
 source_df = read_delta(source_table_path)
 
-# Get the incremental column value
-incremental_column_value = get_incremental_column_value(target_table_path, "batch_id")
-
-# Filter the source dataframe to only get the rows with a modified_at greater than the incremental column value
-filtered_df = source_df.filter(pl.col("batch_id") > incremental_column_value)
-
 # Deduplicate the source dataframe
-deduped_df = deduplicate_transform(filtered_df, primary_key_columns="ID", deduplication_order_columns="batch_id")
+deduped_df = deduplicate(source_df, key_columns="ID", deduplication_order_columns=["batch_id"])
 
 # Normalize the column names using a normalization strategy
-def normalize_column_names(text: str) -> str:
+def normalization_strategy(text: str) -> str:
     return text.lower().replace(" ", "_")
 
-normalized_df = normalize_column_names_transform(deduped_df, normalize_column_names)
+normalized_df = normalize_column_names(deduped_df, normalization_strategy)
 
 # Add audit columns
 audit_columns = config.get_audit_columns()
-audit_df = add_audit_columns_transform(normalized_df, audit_columns)
+audit_df = add_audit_columns(normalized_df, audit_columns)
 
 # Upsert to a target table
 static_audit_columns = config.get_static_audit_columns()
-upsert(target_table_path, audit_df, primary_key_columns="id", update_exclusion_columns=static_audit_columns)
-
+upsert(target_table_path, audit_df, key_columns=["id"], update_exclusion_columns=static_audit_columns)
 
 ```
 

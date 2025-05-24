@@ -7,7 +7,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
-from typing import Optional
+from typing import List, Optional
 
 from blueno.orchestration.blueprint import Blueprint
 from blueno.orchestration.job import BaseJob
@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 class ActivityStatus(Enum):
+    """The statuses a `PipelineActivity` can be in."""
+
     PENDING = "pending"
     READY = "ready"
     QUEUED = "queued"
@@ -32,6 +34,8 @@ class ActivityStatus(Enum):
 
 @dataclass
 class PipelineActivity:
+    """PipelineActivity."""
+
     # id: str
     job: BaseJob
     start: float = 0.0
@@ -41,6 +45,7 @@ class PipelineActivity:
     dependents: list[BaseJob] = field(default_factory=list)
 
     def __str__(self):
+        """String representation."""
         return json.dumps(
             {
                 "job": json.loads(str(self.job)),
@@ -56,6 +61,8 @@ class PipelineActivity:
 
 @dataclass
 class Pipeline:
+    """Pipeline."""
+
     activities: list[PipelineActivity] = field(default_factory=list)
     # _ready_activities: list[Activity] = field(default_factory=list)
     # _lock = threading.Lock()
@@ -95,6 +102,7 @@ class Pipeline:
                         logger.debug(
                             "setting status for activity %s to CANCELLED as upstream activity %s has status %s",
                             act.job.name,
+                            activity.job.name,
                             activity.status.name,
                         )
                         act.status = ActivityStatus.CANCELLED
@@ -128,6 +136,7 @@ class Pipeline:
         return any(self._ready_activities)
 
     def run(self, concurrency: int = 1):
+        """Runs the pipeline."""
         self._update_activities_status()
         self._update_activities()
 
@@ -185,7 +194,20 @@ class Pipeline:
                 executor.shutdown(wait=False, cancel_futures=True)
 
 
-def create_pipeline(jobs: list[Blueprint], subset: list[str] | None = None) -> Pipeline:
+def create_pipeline(jobs: list[Blueprint], subset: Optional[List[str]] = None) -> Pipeline:
+    """Creates a pipeline and resolved dependencies given list of Jobs, and optionally a subset of jobs name.
+
+    Args:
+        jobs: A list of jobs
+        subset: A selector-style list of job names. Can be prefixed or suffixed with + to include downstream and/or upstream jobs.
+            The number of +'s will denote the number of levels to include.
+            I.e. +silver_product will select the silver_product job and its direct upstream dependencies (parents).
+            ++silver_product will select the silver_product job and two generates of upstream dependencies (parents + grandparents).
+
+    Returns:
+        A pipeline of activities with resolved dependencies.
+
+    """
     pipeline = Pipeline()
 
     # Step 1: Create all activities

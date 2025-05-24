@@ -23,7 +23,7 @@ class InvalidJobError(Exception):
 
 
 class JobNotFoundError(Exception):
-    """Raised when a job is not found"""
+    """Raised when a job is not found."""
 
     pass
 

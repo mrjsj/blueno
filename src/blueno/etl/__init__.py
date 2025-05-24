@@ -1,11 +1,17 @@
+"""Collection of ETL functions."""
+
 from .config import Column, Config, IncrementalColumn, create_config, get_default_config
-from .load import append, incremental, overwrite, replace_range, upsert, write_parquet
-from .read import read_delta, read_parquet
-from .transform import (
+from .load.delta_table import append, incremental, overwrite, replace_range, upsert
+from .load.parquet import write_parquet
+from .read.delta_table import read_delta
+from .read.parquet import read_parquet
+from .transform.transforms import (
     add_audit_columns,
     apply_scd_type_2,
     deduplicate,
     normalize_column_names,
+    reorder_columns_by_prefix,
+    reorder_columns_by_suffix,
 )
 
 __all__ = (
@@ -27,4 +33,6 @@ __all__ = (
     "normalize_column_names",
     "add_audit_columns",
     "write_parquet",
+    "reorder_columns_by_prefix",
+    "reorder_columns_by_suffix",
 )
