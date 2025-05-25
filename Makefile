@@ -5,10 +5,10 @@ blueno:
 	uv run blueno
 
 blueno-d:
-	uv run blueno --debug
+	uv run blueno run --project-dir tests/blueprints/simple  --log-level DEBUG
 
 blueno-q:
-	uv run blueno --quiet
+	uv run blueno run --log-level NONE
 
 ty:
 	uv run ty check src --error-on-warning
