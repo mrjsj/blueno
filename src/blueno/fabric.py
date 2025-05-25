@@ -481,3 +481,62 @@ def upload_folder_contents(
             "azcopy copy failed with error:\n%s\n%s}", e.stderr.decode(), e.stdout.decode()
         )
         sys.exit(1)
+
+
+def run_multiple(
+    path: str,
+    select: str,
+    notebook_name: str,
+    timeout_in_seconds: int = 60 * 60 * 12,
+    concurrency: int = 50,
+) -> None:
+    """Uses Microsoft Fabric notebookutils.notebook.runMultiple to run jobs in the provided path.
+
+    Requires to be run in a Fabric notebook environment.
+
+    Args:
+        path: Path to job location. Should be in files in the default lakehouse or a mounted lakehouse.
+        select: List of jobs to run. If not provided, all jobs will be run.
+        notebook_name: The name of the notebook in the same workspace which can run a job by name. Should have `job_name: str` as only parameter.
+        timeout_in_seconds: The total timeout for the entire run. Defaults to 12 hours.
+        concurrency: Max number of notebooks to run concurrently. Defaults to 50.
+    
+    """
+    from blueno import create_pipeline, job_registry
+
+    job_registry.discover_jobs(path)
+
+    pipeline = create_pipeline(jobs=job_registry, subset=select)
+
+    pipeline.activities
+
+    activities = []
+
+    for activity in pipeline.activities:
+        activity = {
+            "name": activity.job.name,
+            "path": f"{notebook_name}",
+            "timeoutPerCellInSeconds": 300,
+            "args": {"job_name": activity.job.name},
+            "retry": 1,
+            "retryIntervalInSeconds": 10,
+            "dependencies": [
+                dep.name for dep in activity.job.depends_on
+            ],  # list of activity names that this activity depends on
+        }
+        activities.append(activity)
+
+    DAG = {
+        "activities": activities,
+        "timeoutInSeconds": timeout_in_seconds,
+        "concurrency": concurrency,
+    }
+
+    try:
+        import notebookutils  # type: ignore
+
+        notebookutils.notebook.runMultiple(DAG, {"displayDAGViaGraphviz": True})
+    except ImportError as e:
+        msg = "Cannot run notebookutils outside a Fabric context"
+        logger.error(msg)
+        raise ImportError(msg) from e
