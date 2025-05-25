@@ -31,7 +31,7 @@ jobs:
 
       - name: uv sync
         run: |
-          uv sync --all-groups
+          uv sync --all-groups --all-extras
 
       - name: Run lint
         run: |

@@ -10,6 +10,7 @@ jobs:
     uses: ./.github/workflows/ci.yaml
 
   build-and-upload:
+    needs: ci
     runs-on: ubuntu-latest
 
     environment: release
