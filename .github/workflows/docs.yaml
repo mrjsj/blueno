@@ -32,6 +32,7 @@ jobs:
           mv assets/images docs/assets/images
 
       - name: test docs
+        run: |
           make docs-test
 
       - run: uv run mkdocs gh-deploy --force
