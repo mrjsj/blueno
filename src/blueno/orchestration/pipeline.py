@@ -155,7 +155,7 @@ class Pipeline:
                 logger.debug("setting status for activity %s to FAILED", activity.job.name)
                 activity.status = ActivityStatus.FAILED
                 activity.duration = time.time() - activity.start
-                logger.error("Error running blueprint %s: ", activity.job.name, e)
+                logger.error("Error running blueprint %s: %s", activity.job.name, e)
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             try:
