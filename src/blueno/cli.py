@@ -168,5 +168,9 @@ def run_remote(
     run_notebook(workspace_id=workspace_id, notebook_id=notebook_id, execution_data=execution_data)
 
 
-if __name__ == "__main__":
+def _main():
     app()
+
+
+if __name__ == "__main__":
+    _main()

@@ -5,7 +5,7 @@ import shutil
 import subprocess
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
 
@@ -485,8 +485,8 @@ def upload_folder_contents(
 
 def run_multiple(
     path: str,
-    select: str,
     notebook_name: str,
+    select: Optional[List[str]] = None,
     timeout_in_seconds: int = 60 * 60 * 12,
     concurrency: int = 50,
 ) -> None:
@@ -496,17 +496,19 @@ def run_multiple(
 
     Args:
         path: Path to job location. Should be in files in the default lakehouse or a mounted lakehouse.
-        select: List of jobs to run. If not provided, all jobs will be run.
         notebook_name: The name of the notebook in the same workspace which can run a job by name. Should have `job_name: str` as only parameter.
+        select: List of jobs to run. If not provided, all jobs will be run.
         timeout_in_seconds: The total timeout for the entire run. Defaults to 12 hours.
         concurrency: Max number of notebooks to run concurrently. Defaults to 50.
-    
+
     """
     from blueno import create_pipeline, job_registry
 
     job_registry.discover_jobs(path)
 
-    pipeline = create_pipeline(jobs=job_registry, subset=select)
+    jobs = list(job_registry.jobs.values())
+
+    pipeline = create_pipeline(jobs=jobs, subset=select)
 
     pipeline.activities
 

@@ -9,7 +9,6 @@ from enum import Enum
 from functools import lru_cache
 from typing import List, Optional
 
-from blueno.orchestration.blueprint import Blueprint
 from blueno.orchestration.job import BaseJob
 
 # class Trigger(Enum):
@@ -194,7 +193,7 @@ class Pipeline:
                 executor.shutdown(wait=False, cancel_futures=True)
 
 
-def create_pipeline(jobs: list[Blueprint], subset: Optional[List[str]] = None) -> Pipeline:
+def create_pipeline(jobs: list[BaseJob], subset: Optional[List[str]] = None) -> Pipeline:
     """Creates a pipeline and resolved dependencies given list of Jobs, and optionally a subset of jobs name.
 
     Args:
