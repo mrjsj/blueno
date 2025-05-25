@@ -1,0 +1,7 @@
+{
+    "name": "Local Spark",
+    "build": {
+        "dockerfile": "Dockerfile",
+        "context": ".."
+	}
+}
