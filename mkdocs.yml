@@ -62,6 +62,7 @@ nav:
     - index.md
     - Blueprints:
       - usage/blueprints/introduction.md
+      - usage/blueprints/quick-start.md
       - usage/blueprints/remote-execution.md
     - usage/installation.md
     - usage/cli.md
