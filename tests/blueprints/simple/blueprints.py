@@ -1,16 +1,17 @@
 import random
 import tempfile
 import time
-import uuid
-
+import shutil
 import polars as pl
 
 from blueno import Blueprint, DataFrameType, blueprint, task
 
 RAND_SIZE = 0.5
 
-tmp_dir = f"{tempfile.gettempdir()}/blueno/blueno-{str(uuid.uuid4()).split('-')[0]}"
 
+tmp_dir = f"{tempfile.gettempdir()}/blueno/blueno-test"
+
+shutil.rmtree(tmp_dir, True)
 
 @task
 def notify_begin() -> None:
@@ -42,7 +43,7 @@ def bronze_products(notify_begin) -> DataFrameType:
     return df
 
 
-@blueprint()
+@blueprint(format="dataframe")
 def landing_customers() -> DataFrameType:
     df = pl.DataFrame(
         {
