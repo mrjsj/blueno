@@ -7,7 +7,7 @@ When a function is decorated with the `blueprint` decorator, it is automatically
 A simple example is a "source" blueprint. It has no dependencies and can thus be executed as the first blueprint in the DAG.
 The example just returns a DataFrame, however, it could be any source, e.g. reading from external storage, a REST API or a database, however it **must** return a DataFrame.
 
-```python notest
+```{.python notest}
 from blueno import blueprint, Blueprint, DataFrameType
 
 
@@ -206,7 +206,7 @@ The resulting DAG is:
 
 And we can see the resulting sales metrics table by printing to console.
 
-```python notest
+```{.python notest}
 import polars as pl
 
 df = pl.read_delta("lakehouse/gold/sales_metrics")
