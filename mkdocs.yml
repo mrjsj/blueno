@@ -1,56 +1,82 @@
 site_name: blueno
-site_description: A DuckDB connection wrapper for Microsoft Fabric Lakehouses
+site_description: blueno, a platform agnostic Python library for writing declarative data pipelines
+site_url: https://mrjsj.github.io/blueno
 repo_url: https://github.com/mrjsj/blueno
 repo_name: mrjsj/blueno
 
 theme:
   name: material
   palette:
-    - scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
-  navigation_depth: 3
+  - media: "(prefers-color-scheme)"
+    toggle:
+      icon: material/lightbulb-auto
+      name: Switch to light mode
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    primary: teal
+    accent: deep orange
+    toggle:
+      icon: material/lightbulb
+      name: Switch to dark mode
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    primary: teal
+    accent: deep orange
+    toggle:
+      icon: material/lightbulb-outline
+      name: Switch to system preference
+  # navigation_depth: 3
   features:
-    - navigation.tracking
-    - navigation.instant
-    - navigation.expand
-    - navigation.tabs
-    - navigation.indexes
-    - navigation.tabs.sticky
-    - navigation.footer
-    - content.tabs.link
     - content.code.annotation
     - content.code.copy
+    - content.tabs.link
+    - content.footnote.tooltips
+
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+
+    - navigation.path
+    - navigation.tabs
+    - navigation.tabs.sticky
+
+    - navigation.top
+    - navigation.tracking
+
+    - search.highlight
+    - search.share
+    - search.suggest
+
+    - toc.follow
+
+  icon:
+    repo: fontawesome/brands/github-alt
+  logo: assets/images/blueno-128x128.png
+  favicon: assets/images/blueno-128x128.png
+  language: en    
 
 plugins:
   - search:
       lang: en
   - include_dir_to_nav
-  - gen-files:
-      scripts:
-        - docs/gen_ref_pages.py
+  # - gen-files:
+  #     scripts:
+  #       - docs/gen_ref_pages.py
   - mkdocstrings:
       default_handler: python
       handlers:
         python:
           paths: [src]
           options:
-            show_root_toc_entry: true
+            show_root_toc_entry: false
             docstring_style: google
             show_source: false
             show_root_heading: false
             filters: ["!^_", "^__init__$"]
             show_object_full_path: false
-            heading_level: 2
+            # heading_level: 2
             members_order: source
             separate_signature: true
             show_signature_annotations: true
@@ -58,42 +84,113 @@ plugins:
             show_if_no_docstring: false
 
 nav:
-  - Introduction:
+  - Blueno:
     - index.md
+  - Features:
+    - features/index.md
+  - Learn:
+    - learn/index.md
+    - learn/quick-start.md
+    # - ETL:
+    #   - learn/etl/extract.md
+    #   - learn/etl/transform.md
+    #   - learn/etl/load.md
     - Blueprints:
-      - usage/blueprints/introduction.md
-      - usage/blueprints/quick-start.md
-      - usage/blueprints/remote-execution.md
-    - usage/installation.md
-    - usage/cli.md
-    - usage/etl.md
+      - learn/blueprints/introduction.md
+      - learn/blueprints/tasks.md
+      - learn/blueprints/custom_jobs.md
+    # - Microsoft Fabric:
+    #   - learn/microsoft-fabric/index.md
   - API Reference:
-      - Orchestration:
-        - reference/orchestration/index.md
-        - reference/orchestration/blueprint.md
-        - reference/orchestration/task.md
-      - ETL:
-        - reference/etl/index.md
-        - reference/etl/read.md
-        - reference/etl/transform.md
-        - reference/etl/load.md      
-      - reference/authentication.md
-      - reference/utilities.md
-      - reference/cli.md
+      - api/blueprint.md
+      - api/etl.md
+      - api/utils.md
+      - api/exceptions.md
+    
+
+
+
+  # - API Reference:
+  #     - Orchestration:
+  #       - reference/orchestration/index.md
+  #       - reference/orchestration/blueprint.md
+  #       - reference/orchestration/task.md
+  #     - ETL:
+  #       - reference/etl/index.md
+  #       - reference/etl/read.md
+  #       - reference/etl/transform.md
+  #       - reference/etl/load.md      
+  #     - reference/authentication.md
+  #     - reference/utilities.md
+  #     - reference/cli.md
 
 # Formatting options
 markdown_extensions:
-  - admonition
-  - pymdownx.details
-  - attr_list
-  - pymdownx.superfences
-  - tables
-  - pymdownx.tabbed:
-      alternate_style: true
-  - pymdownx.snippets:
-      base_path: ['.','docs/source/src/']
-      check_paths: true
-      dedent_subsections: true
-  - footnotes
-  - pymdownx.arithmatex:
-      generic: true
+  # Python Markdown
+  abbr:
+  attr_list:
+  footnotes:
+  md_in_html:
+  tables:
+  toc:
+
+    permalink: true
+  
+  # Python Markdown Extensions
+  pymdownx.betterem:
+    smart_enable: all
+  pymdownx.caret:
+  pymdownx.highlight:
+    line_spans: __span
+
+  pymdownx.inlinehilite:
+  pymdownx.keys:
+  pymdownx.mark:
+  pymdownx.superfences:
+    custom_fences:
+      - name: mermaid
+        class: mermaid
+        format: !!python/name:pymdownx.superfences.fence_code_format
+
+  # pymdownx blocks
+  pymdownx.tilde:
+  pymdownx.blocks.admonition:
+    types:
+      - note
+      - attention
+      - caution
+      - danger
+      - error
+      - tip
+      - hint
+      - warning
+      - info
+
+  pymdownx.blocks.details:
+  pymdownx.blocks.tab:
+    alternate_style: true
+
+  mdx_include:
+  markdown_include_variants:
+
+extra_javascript:
+  - js/termynal.js
+  - js/custom.js
+
+extra_css:
+  - css/termynal.css
+  - css/custom.css
+
+  # - admonition
+  # - pymdownx.details
+  # - attr_list
+  # - tables
+  # - pymdownx.tabbed:
+  #     alternate_style: true
+  # - pymdownx.snippets:
+  #     base_path: ['.','docs/source/src/']
+  #     check_paths: true
+  #     dedent_subsections: true
+  # - footnotes
+  # - pymdownx.arithmatex:
+  #     generic: true
