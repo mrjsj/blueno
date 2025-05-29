@@ -7,6 +7,7 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
 from functools import lru_cache
+from fnmatch import fnmatch
 from typing import List, Optional
 
 from blueno.orchestration.job import BaseJob
@@ -284,21 +285,24 @@ def create_pipeline(jobs: list[BaseJob], subset: Optional[List[str]] = None) -> 
     for item in subset:
         # Parse modifiers (e.g. +silver, silver++, etc.)
         prefix = re.match(r"^(\+*)", item).group(0)  # ty: ignore[possibly-unbound-attribute]
-
         suffix = re.match(r"^(\+*)", item[::-1]).group(0)  # ty: ignore[possibly-unbound-attribute]
-
         core = item.strip("+")
 
-        if core not in name_to_activity:
-            continue
+        # Handle wildcards by finding all matching jobs
+        matching_jobs = set()
+        if "*" in core:
+            matching_jobs = {name for name in name_to_activity.keys() if fnmatch(name, core)}
+        else:
+            if core in name_to_activity:
+                matching_jobs = {core}
 
-        selected.add(core)
-
-        if "+" in prefix:
-            selected.update(get_ancestors(core, level=len(prefix)))
-
-        if "+" in suffix:
-            selected.update(get_descendants(core, level=len(suffix)))
+        # Process each matching job with its modifiers
+        for job_name in matching_jobs:
+            selected.add(job_name)
+            if "+" in prefix:
+                selected.update(get_ancestors(job_name, level=len(prefix)))
+            if "+" in suffix:
+                selected.update(get_descendants(job_name, level=len(suffix)))
 
     # Step 4: Filter activities
 

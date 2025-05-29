@@ -15,16 +15,18 @@ def write_parquet(uri: str, df: DataFrameType, partition_by: Optional[List[str]]
         partition_by: Column(s) to partition by
 
     Example:
-    ```python
-    from blueno.etl import write_parquet
-    import polars as pl
+        ```python
+        from blueno.etl import write_parquet
+        import polars as pl
 
-    # Create sample data with dates
-    data = pl.DataFrame({"year": [2024, 2024, 2024], "month": [1, 2, 3], "value": [100, 200, 300]})
+        # Create sample data with dates
+        data = pl.DataFrame(
+            {"year": [2024, 2024, 2024], "month": [1, 2, 3], "value": [100, 200, 300]}
+        )
 
-    # Write data partitioned by year and month
-    write_parquet(uri="path/to/parquet", df=data, partition_by=["year", "month"])
-    ```
+        # Write data partitioned by year and month
+        write_parquet(uri="path/to/parquet", df=data, partition_by=["year", "month"])
+        ```
     """
     storage_options = get_storage_options(uri)
 

@@ -35,21 +35,21 @@ def task(
         priority: Determines the execution order among activities ready to run. Higher values indicate higher scheduling preference, but dependencies and concurrency limits are still respected.
 
     Example:
-    Creates a task for the `notify_end`, which is depends on a gold blueprint.
+        **Creates a task for the `notify_end`, which is depends on a gold blueprint.**
 
-    ```python
-    from blueno import blueprint, Blueprint, task
-    import logging
+        ```python
+        from blueno import blueprint, Blueprint, task
+        import logging
 
-    logger = logging.getLogger(__name__)
+        logger = logging.getLogger(__name__)
 
 
-    @task
-    def notify_end(gold_metrics: Blueprint) -> None:
-        logger.info("Gold metrics ran successfully")
+        @task
+        def notify_end(gold_metrics: Blueprint) -> None:
+            logger.info("Gold metrics ran successfully")
 
-        # Send message on Slack
-    ```
+            # Send message on Slack
+        ```
     """
 
     # TODO: Input validation

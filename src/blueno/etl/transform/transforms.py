@@ -22,17 +22,17 @@ def add_audit_columns(df: DataFrameType, audit_columns: list[Column]) -> DataFra
         The DataFrame or LazyFrame with the added audit columns.
 
     Example:
-    ```python
-    from blueno.etl import add_audit_columns, Column
-    import polars as pl
-    from datetime import datetime, timezone
+        ```python
+        from blueno.etl import add_audit_columns, Column
+        import polars as pl
+        from datetime import datetime, timezone
 
-    audit_columns = [
-        Column("created_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC")))
-    ]
-    df = pl.DataFrame({"data": [1, 2, 3]})
-    updated_df = add_audit_columns(df, audit_columns)
-    ```
+        audit_columns = [
+            Column("created_at", pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC")))
+        ]
+        df = pl.DataFrame({"data": [1, 2, 3]})
+        updated_df = add_audit_columns(df, audit_columns)
+        ```
     """
     df = df.with_columns(
         [audit_column.default_value.alias(audit_column.name) for audit_column in audit_columns]
@@ -58,13 +58,13 @@ def deduplicate(
         The DataFrame or LazyFrame with duplicates removed.
 
     Example:
-    ```python
-    import polars as pl
-    from blueno.etl import deduplicate
+        ```python
+        import polars as pl
+        from blueno.etl import deduplicate
 
-    df = pl.DataFrame({"id": [1, 2, 2, 3], "value": ["a", "b", "b", "c"]})
-    deduped_df = deduplicate(df, key_columns=["id"])
-    ```
+        df = pl.DataFrame({"id": [1, 2, 2, 3], "value": ["a", "b", "b", "c"]})
+        deduped_df = deduplicate(df, key_columns=["id"])
+        ```
     """
     if isinstance(key_columns, str):
         key_columns = [key_columns]
@@ -111,19 +111,19 @@ def normalize_column_names(
         The DataFrame or LazyFrame with normalized column names.
 
     Example:
-    ```python
-    import polars as pl
-    from blueno.etl import normalize_column_names
+        ```python
+        import polars as pl
+        from blueno.etl import normalize_column_names
 
 
-    def my_strategy(old_column_name: str) -> str:
-        new_name = old_column_name.replace(" ", "_").lower()
-        return new_name
+        def my_strategy(old_column_name: str) -> str:
+            new_name = old_column_name.replace(" ", "_").lower()
+            return new_name
 
 
-    df = pl.DataFrame({"First Name": [1, 2], "Last Name": [3, 4]})
-    normalized_df = normalize_column_names(df, my_strategy)
-    ```
+        df = pl.DataFrame({"First Name": [1, 2], "Last Name": [3, 4]})
+        normalized_df = normalize_column_names(df, my_strategy)
+        ```
     """
     if isinstance(df, pl.LazyFrame):
         columns = df.collect_schema().names()
@@ -151,16 +151,21 @@ def reorder_columns_by_suffix(
         The DataFrame or LazyFrame with reordered columns.
 
     Example:
-    ```python
-    import polars as pl
-    from blueno.etl import reorder_columns_by_suffix
+        ```python
+        import polars as pl
+        from blueno.etl import reorder_columns_by_suffix
 
 
-    df = pl.DataFrame(
-        {"name_key": ["a", "b"], "age_key": [1, 2], "name_value": ["x", "y"], "age_value": [10, 20]}
-    )
-    reordered_df = reorder_columns_by_suffix(df, suffix_order=["_pk", "_fk"])
-    ```
+        df = pl.DataFrame(
+            {
+                "name_key": ["a", "b"],
+                "age_key": [1, 2],
+                "name_value": ["x", "y"],
+                "age_value": [10, 20],
+            }
+        )
+        reordered_df = reorder_columns_by_suffix(df, suffix_order=["_pk", "_fk"])
+        ```
     """
     if isinstance(df, pl.LazyFrame):
         columns = df.collect_schema().names()
@@ -199,20 +204,20 @@ def reorder_columns_by_prefix(
         The DataFrame or LazyFrame with reordered columns.
 
     Example:
-    ```python
-    import polars as pl
-    from blueno.etl import reorder_columns_by_prefix
+        ```python
+        import polars as pl
+        from blueno.etl import reorder_columns_by_prefix
 
-    df = pl.DataFrame(
-        {
-            "dim_name": ["a", "b"],
-            "dim_age": [1, 2],
-            "fact_sales": [100, 200],
-            "fact_quantity": [5, 10],
-        }
-    )
-    reordered_df = reorder_columns_by_prefix(df, prefix_order=["pk_", "fk_"])
-    ```
+        df = pl.DataFrame(
+            {
+                "dim_name": ["a", "b"],
+                "dim_age": [1, 2],
+                "fact_sales": [100, 200],
+                "fact_quantity": [5, 10],
+            }
+        )
+        reordered_df = reorder_columns_by_prefix(df, prefix_order=["pk_", "fk_"])
+        ```
     """
     if isinstance(df, pl.LazyFrame):
         columns = df.collect_schema().names()
@@ -262,50 +267,50 @@ def apply_scd_type_2(
         A DataFrame containing both current and historical records with updated validity periods.
 
     Example:
-    ```python
-    import polars as pl
-    from blueno.etl import apply_scd_type_2
-    from datetime import datetime
+        ```python
+        import polars as pl
+        from blueno.etl import apply_scd_type_2
+        from datetime import datetime
 
-    # Create sample source and target dataframes
-    source_df = pl.DataFrame({
-        "customer_id": [1, 2],
-        "name": ["John Updated", "Jane Updated"],
-        "valid_from": [datetime(2024, 1, 1), datetime(2024, 1, 1)],
-    })
+        # Create sample source and target dataframes
+        source_df = pl.DataFrame({
+            "customer_id": [1, 2],
+            "name": ["John Updated", "Jane Updated"],
+            "valid_from": [datetime(2024, 1, 1), datetime(2024, 1, 1)],
+        })
 
-    target_df = pl.DataFrame({
-        "customer_id": [1, 2],
-        "name": ["John", "Jane"],
-        "valid_from": [datetime(2023, 1, 1), datetime(2023, 1, 1)],
-        "valid_to": [None, None]
-    })
+        target_df = pl.DataFrame({
+            "customer_id": [1, 2],
+            "name": ["John", "Jane"],
+            "valid_from": [datetime(2023, 1, 1), datetime(2023, 1, 1)],
+            "valid_to": [None, None]
+        })
 
-    # Apply SCD Type 2
-    result_df = apply_scd_type_2(
-        source_df=source_df,
-        target_df=target_df,
-        primary_key_columns="customer_id",
-        valid_from_column="valid_from",
-        valid_to_column="valid_to"
-    )
+        # Apply SCD Type 2
+        result_df = apply_scd_type_2(
+            source_df=source_df,
+            target_df=target_df,
+            primary_key_columns="customer_id",
+            valid_from_column="valid_from",
+            valid_to_column="valid_to"
+        )
 
-    print(result_df.sort("customer_id", "valid_from"))
+        print(result_df.sort("customer_id", "valid_from"))
 
-    \"\"\"
-    shape: (4, 4)
-    ┌─────────────┬──────────────┬─────────────────────┬─────────────────────┐
-    │ customer_id ┆ name         ┆ valid_from          ┆ valid_to            │
-    │ ---         ┆ ---          ┆ ---                 ┆ ---                 │
-    │ i64         ┆ str          ┆ datetime[μs]        ┆ datetime[μs]        │
-    ╞═════════════╪══════════════╪═════════════════════╪═════════════════════╡
-    │ 1           ┆ John         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
-    │ 1           ┆ John Updated ┆ 2024-01-01 00:00:00 ┆ null                │
-    │ 2           ┆ Jane         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
-    │ 2           ┆ Jane Updated ┆ 2024-01-01 00:00:00 ┆ null                │
-    └─────────────┴──────────────┴─────────────────────┴─────────────────────┘
-    \"\"\"
-    ```
+        \"\"\"
+        shape: (4, 4)
+        ┌─────────────┬──────────────┬─────────────────────┬─────────────────────┐
+        │ customer_id ┆ name         ┆ valid_from          ┆ valid_to            │
+        │ ---         ┆ ---          ┆ ---                 ┆ ---                 │
+        │ i64         ┆ str          ┆ datetime[μs]        ┆ datetime[μs]        │
+        ╞═════════════╪══════════════╪═════════════════════╪═════════════════════╡
+        │ 1           ┆ John         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
+        │ 1           ┆ John Updated ┆ 2024-01-01 00:00:00 ┆ null                │
+        │ 2           ┆ Jane         ┆ 2023-01-01 00:00:00 ┆ 2024-01-01 00:00:00 │
+        │ 2           ┆ Jane Updated ┆ 2024-01-01 00:00:00 ┆ null                │
+        └─────────────┴──────────────┴─────────────────────┴─────────────────────┘
+        \"\"\"
+        ```
 
     Notes:
         - The function handles overlapping date ranges by adjusting valid_to dates

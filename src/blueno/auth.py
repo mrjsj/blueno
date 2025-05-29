@@ -1,8 +1,11 @@
 import logging
 import os
+import sys
 from functools import lru_cache
 
 from deltalake import DeltaTable
+
+from blueno.exceptions import BluenoUserError
 
 logger = logging.getLogger(__name__)
 
@@ -17,15 +20,14 @@ def get_access_token(audience: str) -> str:
     is not available, it falls back to using the `DefaultAzureCredential` from the Azure SDK
     to fetch the token.
     """
-    try:
+    if "notebookutils" in sys.modules:
         logger.debug("trying to get token using notebookutils")
         import notebookutils  # type: ignore
 
         token = notebookutils.credentials.getToken(audience)
         return token
-    except ModuleNotFoundError:
-        logger.debug("notebookutils not found, falling back to azure-identity")
-        pass
+
+    logger.debug("notebookutils not found, falling back to azure-identity")
 
     try:
         logger.debug("trying to get token using azure-identity")
@@ -142,15 +144,39 @@ def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
 
     match protocol:
         case "abfss":
+            storage_options = {
+                "bearer_token": get_azure_storage_access_token(),
+            }
             # TODO: `allow_invalid_certificates` is set due to: https://github.com/delta-io/delta-rs/issues/3243
             # This is specifically an issue in the Microsoft Fabric Python runtime.
-            return {
-                "bearer_token": get_azure_storage_access_token(),
-                "allow_invalid_certificates": "true",
-            }
-        case "s3" | "s3a" | "gcs" | "http" | "https":
+            if "notebookutils" in sys.modules:
+                storage_options["allow_invalid_certificates"] = "true"
+
+            return storage_options
+
+        case "r2":
+            msg = "r2 is supported, but you must use the s3 protocol."
+            logger.error("r2 is supported, but you must use the s3 protocol.")
+            raise BluenoUserError(msg)
+        case "s3" | "s3a":
+            storage_options = {}
+            s3_env_vars = [
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY",
+                "AWS_SESSION_TOKEN",
+                "AWS_REGION",
+                "AWS_ENDPOINT_URL",
+            ]
+            for env_var in s3_env_vars:
+                var = os.getenv(env_var)
+                if var is not None:
+                    storage_options[env_var] = var
+
+            return storage_options
+        case "http" | "https" | "gcs":
             logger.warning(
                 "protocol %s is not supported yet - you can provide your own storage options."
+                % protocol
             )
         case _:
             if protocol == table_or_uri:

@@ -1,9 +1,9 @@
 """Collection of ETL functions."""
 
 from .config import Column, Config, IncrementalColumn, create_config, get_default_config
-from .load.delta_table import append, incremental, overwrite, replace_range, upsert
+from .load.delta import append, incremental, overwrite, replace_range, upsert
 from .load.parquet import write_parquet
-from .read.delta_table import read_delta
+from .read.delta import read_delta
 from .read.parquet import read_parquet
 from .transform.transforms import (
     add_audit_columns,

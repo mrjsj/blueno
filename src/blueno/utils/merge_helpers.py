@@ -3,7 +3,9 @@
 from blueno.utils import quote_identifier
 
 
-def build_merge_predicate(columns: list[str]) -> str:
+def build_merge_predicate(
+    columns: list[str], source_alias: str = "source", target_alias: str = "target"
+) -> str:
     """Constructs a SQL merge predicate based on the provided column names.
 
     This function generates a string that represents the condition for merging
@@ -11,6 +13,8 @@ def build_merge_predicate(columns: list[str]) -> str:
 
     Args:
         columns: A list of column names to be used in the merge predicate.
+        source_alias: An alias for the source
+        target_alias: An alias for the target
 
     Returns:
         A SQL string representing the merge predicate.
@@ -28,14 +32,16 @@ def build_merge_predicate(columns: list[str]) -> str:
     """
     merge_predicate = [
         f"""
-            (target.{quote_identifier(column)} = source.{quote_identifier(column)})
+            ({target_alias}.{quote_identifier(column)} = {source_alias}.{quote_identifier(column)})
         """
         for column in columns
     ]
     return " AND ".join(merge_predicate)
 
 
-def build_when_matched_update_predicate(columns: list[str]) -> str:
+def build_when_matched_update_predicate(
+    columns: list[str], source_alias: str = "source", target_alias: str = "target"
+) -> str:
     """Constructs a SQL predicate for when matched update conditions.
 
     This function generates a string that represents the conditions for updating
@@ -43,6 +49,8 @@ def build_when_matched_update_predicate(columns: list[str]) -> str:
 
     Args:
         columns: A list of column names to be used in the update predicate.
+        source_alias: An alias for the source
+        target_alias: An alias for the target
 
     Returns:
         A SQL string representing the when matched update predicate.
@@ -65,9 +73,9 @@ def build_when_matched_update_predicate(columns: list[str]) -> str:
     when_matched_update_predicates = [
         f"""
             (
-                (target.{quote_identifier(column)} != source.{quote_identifier(column)})
-                OR (target.{quote_identifier(column)} IS NULL AND source.{quote_identifier(column)} IS NOT NULL)
-                OR (target.{quote_identifier(column)} IS NOT NULL AND source.{quote_identifier(column)} IS NULL)
+                ({target_alias}.{quote_identifier(column)} != {source_alias}.{quote_identifier(column)})
+                OR ({target_alias}.{quote_identifier(column)} IS NULL AND {source_alias}.{quote_identifier(column)} IS NOT NULL)
+                OR ({target_alias}.{quote_identifier(column)} IS NOT NULL AND {source_alias}.{quote_identifier(column)} IS NULL)
             )
         """
         for column in columns
@@ -75,7 +83,9 @@ def build_when_matched_update_predicate(columns: list[str]) -> str:
     return " OR ".join(when_matched_update_predicates)
 
 
-def build_when_matched_update_columns(columns: list[str]) -> dict[str, str]:
+def build_when_matched_update_columns(
+    columns: list[str], source_alias: str = "source", target_alias: str = "target"
+) -> dict[str, str]:
     """Constructs a mapping of columns to be updated when a match is found.
 
     This function generates a dictionary where the keys are the target column
@@ -83,6 +93,8 @@ def build_when_matched_update_columns(columns: list[str]) -> dict[str, str]:
 
     Args:
         columns: A list of column names to be used in the update mapping.
+        source_alias: An alias for the source
+        target_alias: An alias for the target
 
     Returns:
         A dictionary mapping target columns to source columns.
@@ -98,6 +110,6 @@ def build_when_matched_update_columns(columns: list[str]) -> dict[str, str]:
     ```
     """
     return {
-        f"target.{quote_identifier(column)}": f"source.{quote_identifier(column)}"
+        f"{target_alias}.{quote_identifier(column)}": f"{source_alias}.{quote_identifier(column)}"
         for column in columns
     }

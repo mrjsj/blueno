@@ -216,7 +216,11 @@ class Blueprint(BaseJob):
 
         logger.debug("validating schema for %s %s", self.type, self.name)
 
-        schema_frame = pl.DataFrame(schema=self.schema)
+        if isinstance(self._dataframe, pl.LazyFrame):
+            schema_frame = pl.LazyFrame(schema=self.schema)
+        else:
+            schema_frame = pl.DataFrame(schema=self.schema)
+
         assert_frame_equal(self._dataframe.limit(0), schema_frame, check_column_order=False)
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
@@ -242,7 +246,7 @@ def blueprint(
     valid_from_column: Optional[str] = None,
     valid_to_column: Optional[str] = None,
     write_mode: str = "overwrite",
-    format: str = "delta",
+    format: str = "dataframe",
     priority: int = 100,
 ):
     """Create a definition for how to compute a blueprint.
@@ -264,24 +268,21 @@ def blueprint(
         priority: Determines the execution order among activities ready to run. Higher values indicate higher scheduling preference, but dependencies and concurrency limits are still respected.
 
     Example:
-    Creates a blueprint for the `stage_customer` table, which is derived from the `bronze_customer` table.
-    The `bronze_customer` must be another blueprint.
-
-    ```python
-    from blueno import blueprint, Blueprint, DataFrameType
+        ```python
+        from blueno import blueprint, Blueprint, DataFrameType
 
 
-    @blueprint(
-        table_uri="/path/to/stage/customer",
-        primary_keys=["customer_id"],
-        write_mode="overwrite",
-    )
-    def stage_customer(self: Blueprint, bronze_customer: DataFrameType) -> DataFrameType:
-        # Deduplicate customers
-        df = bronze_customers.unique(subset=self.primary_keys)
+        @blueprint(
+            table_uri="/path/to/stage/customer",
+            primary_keys=["customer_id"],
+            write_mode="overwrite",
+        )
+        def stage_customer(self: Blueprint, bronze_customer: DataFrameType) -> DataFrameType:
+            # Deduplicate customers
+            df = bronze_customers.unique(subset=self.primary_keys)
 
-        return df
-    ```
+            return df
+        ```
     """
     _primary_keys = primary_keys or []
 
@@ -299,6 +300,11 @@ def blueprint(
         msg = "format must be one of: 'delta', 'parquet', 'dataframe' - got %s"
         logger.error(msg, format)
         raise BluenoUserError(msg % format)
+    
+    if format in ["delta", "parquet"] and table_uri is None:
+        msg = "table_uri must be supplied when format is 'delta' or 'parquet'"
+        logger.error(msg)
+        raise BluenoUserError(msg)
 
     if write_mode == "upsert" and not primary_keys:
         msg = "primary_keys must be provided for upsert write_mode"

@@ -279,7 +279,7 @@ class JobRegistry:
                 dot.edge(dep.name, step.name)
 
         with TemporaryDirectory() as tmpdirname:  # ty: ignore[no-matching-overload]
-            dot.render(tmpdirname + "_dag", view=True, format="png")
+            dot.render(tmpdirname + "_dag", view=True, cleanup=True, format="png")
 
 
 job_registry = JobRegistry()

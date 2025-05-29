@@ -59,7 +59,7 @@ def _prepare_blueprints(project_dir: str) -> None:
 @app.command
 def run(
     project_dir: str,
-    select: Optional[list[str]] = None,
+    select: Annotated[Optional[list[str]], Parameter(consume_multiple=True)] = None,
     display_mode: Annotated[
         Literal["live", "log", "none"],
         Parameter(help="Show live updates, log output, or no output"),
@@ -168,9 +168,10 @@ def run_remote(
     run_notebook(workspace_id=workspace_id, notebook_id=notebook_id, execution_data=execution_data)
 
 
-def _main():
+def main():
+    """Entrypoint."""
     app()
 
 
 if __name__ == "__main__":
-    _main()
+    main()

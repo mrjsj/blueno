@@ -37,16 +37,16 @@ def upsert(
         Dict containing merge operation statistics
 
     Example:
-    ```python
-    from blueno.etl import upsert
-    import polars as pl
+        ```python
+        from blueno.etl import upsert
+        import polars as pl
 
-    # Create sample data
-    data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        # Create sample data
+        data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
 
-    # Upsert data using 'id' as the key column
-    upsert("path/to/upsert_delta_table", data, key_columns=["id"])
-    ```
+        # Upsert data using 'id' as the key column
+        upsert("path/to/upsert_delta_table", data, key_columns=["id"])
+        ```
     """
     if update_exclusion_columns is None:
         update_exclusion_columns = []
@@ -102,16 +102,16 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         df: Data to write as a Polars DataFrame or LazyFrame
 
     Example:
-    ```python
-    from blueno.etl import overwrite
-    import polars as pl
+        ```python
+        from blueno.etl import overwrite
+        import polars as pl
 
-    # Create sample data
-    data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        # Create sample data
+        data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
 
-    # Replace entire table with new data
-    overwrite("path/to/overwrite_delta_table", data)
-    ```
+        # Replace entire table with new data
+        overwrite("path/to/overwrite_delta_table", data)
+        ```
     """
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
@@ -144,16 +144,16 @@ def replace_range(
             values between the min and max of this column in df will be replaced
 
     Example:
-    ```python
-    from blueno.etl import replace_range
-    import polars as pl
+        ```python
+        from blueno.etl import replace_range
+        import polars as pl
 
-    # Create sample data for dates 2024-01-01 to 2024-01-31
-    data = pl.DataFrame({"date": ["2024-01-01", "2024-01-31"], "value": [100, 200]})
+        # Create sample data for dates 2024-01-01 to 2024-01-31
+        data = pl.DataFrame({"date": ["2024-01-01", "2024-01-31"], "value": [100, 200]})
 
-    # Replace all records between Jan 1-31
-    replace_range("path/to/replace_range_delta_table", data, range_column="date")
-    ```
+        # Replace all records between Jan 1-31
+        replace_range("path/to/replace_range_delta_table", data, range_column="date")
+        ```
     """
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
@@ -201,16 +201,16 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         df: The dataframe to append to the Delta table
 
     Example:
-    ```python
-    from blueno.etl import append
-    import polars as pl
+        ```python
+        from blueno.etl import append
+        import polars as pl
 
-    # Create sample data
-    data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
+        # Create sample data
+        data = pl.DataFrame({"id": [1, 2], "name": ["Alice", "Bob"]})
 
-    # Append data to table
-    append("path/to/append_delta_table", data)
-    ```
+        # Append data to table
+        append("path/to/append_delta_table", data)
+        ```
     """
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
@@ -240,16 +240,16 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
             table will be appended
 
     Example:
-    ```python
-    from blueno.etl import incremental
-    import polars as pl
+        ```python
+        from blueno.etl import incremental
+        import polars as pl
 
-    # Create sample data
-    data = pl.DataFrame({"timestamp": ["2024-05-24T10:00:00"], "value": [100]})
+        # Create sample data
+        data = pl.DataFrame({"timestamp": ["2024-05-24T10:00:00"], "value": [100]})
 
-    # Append only records newer than existing data
-    incremental("path/to/incremental_delta_table", data, incremental_column="timestamp")
-    ```
+        # Append only records newer than existing data
+        incremental("path/to/incremental_delta_table", data, incremental_column="timestamp")
+        ```
     """
     schema = df.schema if isinstance(df, pl.DataFrame) else df.collect_schema()
 
