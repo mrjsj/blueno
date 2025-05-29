@@ -80,8 +80,13 @@ def upsert(
 
     duplicates = df.num_rows - unique_rows
     if duplicates != 0:
-        msg = "%s duplicates in source dataframe detected - duplicates are not allowed when upserting"
-        logger.error("%s duplicates in source dataframe detected - duplicates are not allowed when upserting", duplicates)
+        msg = (
+            "%s duplicates in source dataframe detected - duplicates are not allowed when upserting"
+        )
+        logger.error(
+            "%s duplicates in source dataframe detected - duplicates are not allowed when upserting",
+            duplicates,
+        )
         raise GenericBluenoError(msg % duplicates)
 
     if isinstance(table_or_uri, str):

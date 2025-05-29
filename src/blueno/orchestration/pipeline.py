@@ -69,14 +69,11 @@ class Pipeline:
 
     def _have_all_dependents_completed(self, activity: PipelineActivity) -> bool:
         """Check if all dependents of an activity have completed."""
-        dependent_activities = [
-            a for a in self.activities 
-            if a.job.name in activity.dependents
-        ]
+        dependent_activities = [a for a in self.activities if a.job.name in activity.dependents]
         return all(
             dep.status in (ActivityStatus.COMPLETED, ActivityStatus.SKIPPED)
             for dep in dependent_activities
-        )    
+        )
 
     def _is_ready(self, activity: PipelineActivity) -> bool:
         dep_activities = [
@@ -119,10 +116,11 @@ class Pipeline:
                         )
                         act.status = ActivityStatus.CANCELLED
                 continue
-            
-            if activity.status is ActivityStatus.COMPLETED and self._have_all_dependents_completed(activity):
+
+            if activity.status is ActivityStatus.COMPLETED and self._have_all_dependents_completed(
+                activity
+            ):
                 activity.job.free_memory()
-                
 
     def _update_activities(self):
         for activity in self.activities:
