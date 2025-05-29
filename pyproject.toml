@@ -22,7 +22,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "cyclopts>=3.16.1",
-    "deltalake>=0.25.5",
+    "deltalake<1.0.0",
     "polars>=1.29.0 ; sys_platform != 'darwin'",
     "polars-lts-cpu>=1.29.0 ; sys_platform == 'darwin'",
 ]
@@ -44,6 +44,7 @@ azure = [
 [tool.ruff]
 line-length = 100
 include = ["src/**/*.py"]
+exclude = ["examples/**/*.py"]
 
 
 [tool.ruff.lint]
