@@ -28,6 +28,7 @@ from blueno.exceptions import (
 )
 from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_step
 from blueno.types import DataFrameType
+from blueno.utils import get_or_create_delta_table
 
 logger = logging.getLogger(__name__)
 
@@ -96,10 +97,9 @@ class Blueprint(BaseJob):
             logger.debug("reading %s %s from %s", self.type, self.name, self.table_uri)
             return self.target_df
 
-        logger.debug("%s %s is not materialized - materializing", self.type, self.name)
-        self.transform()
-
-        return self._dataframe
+        msg = "%s %s is not materialized - most likely because it was never materialized, or it's an ephemeral format, i.e. 'dataframe'"
+        logger.error(msg, self.type, self.name, self.name)
+        raise BluenoUserError(msg % (self.type, self.name, self.name))
 
     @property
     def target_df(self) -> DataFrameType:
@@ -157,19 +157,84 @@ class Blueprint(BaseJob):
                         df=self._dataframe,
                         key_columns=self.primary_keys,
                     )
-                case "scd2":
+                case "scd2_by_column":
+                    incremental_column_dtype = self._dataframe.select(
+                        self.incremental_column
+                    ).dtypes[0]
+
+                    if isinstance(incremental_column_dtype, pl.Datetime):
+                        time_unit = incremental_column_dtype.time_unit
+                        time_zone = incremental_column_dtype.time_zone
+
+                        source_df = self._dataframe.with_columns(
+                            pl.col(self.incremental_column).alias(self.valid_from_column),
+                            pl.datetime(
+                                None, None, None, time_unit=time_unit, time_zone=time_zone
+                            ).alias(self.valid_to_column),
+                        )
+
+                    else:
+                        logger.warning(
+                            "using incremental_column on a string column - defaulting to time_unit 'us' and time_zone 'UTC'. consider manually casting %s to a pl.Datetime",
+                            self.incremental_column,
+                        )
+                        time_unit = "us"
+                        time_zone = "UTC"
+
+                        source_df = self._dataframe.with_columns(
+                            pl.col(self.incremental_column)
+                            .str.to_datetime(time_unit=time_unit, time_zone=time_zone)
+                            .alias(self.valid_from_column),
+                            pl.datetime(
+                                None, None, None, time_unit=time_unit, time_zone=time_zone
+                            ).alias(self.valid_to_column),
+                        )
+
+                    schema = (
+                        source_df.collect_schema()
+                        if isinstance(source_df, pl.LazyFrame)
+                        else source_df.schema
+                    )
+
+                    target_dt = get_or_create_delta_table(self.table_uri, schema)
+                    target_df = pl.scan_delta(target_dt)
+
                     upsert_df = apply_scd_type_2(
-                        source_df=self._dataframe,
-                        target_df=self.target_df,
+                        source_df=source_df,
+                        target_df=target_df,
                         primary_key_columns=self.primary_keys,
                         valid_from_column=self.valid_from_column,
                         valid_to_column=self.valid_to_column,
                     )
+
                     upsert(
                         table_or_uri=self.table_uri,
                         df=upsert_df,
                         key_columns=self.primary_keys + [self.valid_from_column],
                     )
+                # case "scd2_by_time":
+
+                #     source_df = self._dataframe.with_columns(
+                #         pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us", "UTC")).alias(self.valid_from_column),
+                #         pl.datetime(None,None,None, time_unit="us", time_zone="UTC").alias(self.valid_to_column)
+                #     )
+                #     schema = source_df.collect_schema() if isinstance(source_df, pl.LazyFrame) else source_df.schema
+
+                #     target_dt = get_or_create_delta_table(self.table_uri, schema)
+                #     target_df = pl.scan_delta(target_dt)
+
+                #     upsert_df = apply_scd_type_2(
+                #         source_df=source_df,
+                #         target_df=target_df,
+                #         primary_key_columns=self.primary_keys,
+                #         valid_from_column=self.valid_from_column,
+                #         valid_to_column=self.valid_to_column,
+                #     )
+                #     upsert(
+                #         table_or_uri=self.table_uri,
+                #         df=upsert_df,
+                #         key_columns=self.primary_keys,
+                #     )
                 case _:
                     msg = "invalid write_mode %s for %s for %s %s"
                     logger.error(msg, self.write_mode, self.format, self.type, self.name)
@@ -224,6 +289,11 @@ class Blueprint(BaseJob):
         assert_frame_equal(self._dataframe.limit(0), schema_frame, check_column_order=False)
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
+
+    @track_step
+    def free_memory(self):
+        """Clears the collected dataframe to free memory."""
+        self._dataframe = None
 
     @track_step
     def run(self):
@@ -291,16 +361,24 @@ def blueprint(
         logger.error(msg)
         raise BluenoUserError(msg)
 
-    if write_mode not in ["append", "overwrite", "upsert", "incremental", "replace_range", "scd2"]:
-        msg = "write_method must be one of: 'append', 'overwrite', 'upsert', 'incremental', 'replace_range', 'scd2'"
-        logger.error(msg)
-        raise BluenoUserError(msg)
+    if write_mode not in [
+        "append",
+        "overwrite",
+        "upsert",
+        "incremental",
+        "replace_range",
+        "scd2_by_column",
+        "scd2_by_time",
+    ]:
+        msg = "write_mode must be one of: 'append', 'overwrite', 'upsert', 'incremental', 'replace_range', 'scd2_by_column', 'scd2_by_time' - got '%s'"
+        logger.error(msg, write_mode)
+        raise BluenoUserError(msg % write_mode)
 
     if format not in ["delta", "parquet", "dataframe"]:
         msg = "format must be one of: 'delta', 'parquet', 'dataframe' - got %s"
         logger.error(msg, format)
         raise BluenoUserError(msg % format)
-    
+
     if format in ["delta", "parquet"] and table_uri is None:
         msg = "table_uri must be supplied when format is 'delta' or 'parquet'"
         logger.error(msg)
@@ -316,13 +394,17 @@ def blueprint(
         logger.error(msg)
         raise BluenoUserError(msg)
 
-    if write_mode == "scd2" and (not primary_keys or not valid_from_column or not valid_to_column):
-        msg = "primary_keys, valid_from_column and valid_to_column must be provided for scd2 write_mode"
+    if write_mode == "scd2_by_column" and (
+        not primary_keys or not incremental_column or not valid_from_column or not valid_to_column
+    ):
+        msg = "primary_keys, incremental_column, valid_from_column and valid_to_column must be provided for scd2_by_column write_mode"
         logger.error(msg)
         raise BluenoUserError(msg)
 
-    if write_mode == "scd2" and not primary_keys:
-        msg = "primary_keys must be provided for scd2 write_mode."
+    if write_mode == "scd2_by_time" and (
+        not primary_keys or not valid_from_column or not valid_to_column
+    ):
+        msg = "primary_keys, valid_from_column and valid_to_column must be provided for scd2_by_time write_mode"
         logger.error(msg)
         raise BluenoUserError(msg)
 

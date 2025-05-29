@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Union
 import polars as pl
 from deltalake import DeltaTable, write_deltalake
 
+from blueno.exceptions import GenericBluenoError
 from blueno.types import DataFrameType
 from blueno.utils import (
     build_merge_predicate,
@@ -71,7 +72,17 @@ def upsert(
     ]
     when_matched_update_columns = build_when_matched_update_columns(update_columns)
 
+    # TODO: delta-rs doesn't handle duplicates before merging atm, so this check ensure we don't merge with duplicates in the source_df
+    # https://github.com/delta-io/delta-rs/issues/2407
+    unique_rows = df.select(key_columns).unique().to_arrow().num_rows
+
     df = df.to_arrow()
+
+    duplicates = df.num_rows - unique_rows
+    if duplicates != 0:
+        msg = "%s duplicates in source dataframe detected - duplicates are not allowed when upserting"
+        logger.error("%s duplicates in source dataframe detected - duplicates are not allowed when upserting", duplicates)
+        raise GenericBluenoError(msg % duplicates)
 
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)

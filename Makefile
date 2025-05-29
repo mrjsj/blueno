@@ -10,6 +10,9 @@ blueno-d:
 blueno-q:
 	uv run blueno run --log-level NONE
 
+gen-data:
+	./data_generator/DatabaseGenerator ./data_generator/config.json ./data_generator/data.xlsx  ./data_generator/out ./data_generator/cache
+
 ty:
 	uv run ty check src --error-on-warning
 

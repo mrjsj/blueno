@@ -108,6 +108,13 @@ class BaseJob(ABC):
         """
         pass
 
+    def free_memory(self) -> None:
+        """Method to free up memory, e.g. deleting dataframe.
+
+        This will be called when the jobs dependents have completed.
+        """
+        pass
+
 
 @dataclass
 class JobRegistry:

@@ -6,8 +6,8 @@ import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import lru_cache
 from fnmatch import fnmatch
+from functools import lru_cache
 from typing import List, Optional
 
 from blueno.orchestration.job import BaseJob
@@ -67,6 +67,17 @@ class Pipeline:
     # _ready_activities: list[Activity] = field(default_factory=list)
     # _lock = threading.Lock()
 
+    def _have_all_dependents_completed(self, activity: PipelineActivity) -> bool:
+        """Check if all dependents of an activity have completed."""
+        dependent_activities = [
+            a for a in self.activities 
+            if a.job.name in activity.dependents
+        ]
+        return all(
+            dep.status in (ActivityStatus.COMPLETED, ActivityStatus.SKIPPED)
+            for dep in dependent_activities
+        )    
+
     def _is_ready(self, activity: PipelineActivity) -> bool:
         dep_activities = [
             a for a in self.activities if a.job.name in [d.name for d in activity.job.depends_on]
@@ -94,6 +105,7 @@ class Pipeline:
             if activity.status is ActivityStatus.PENDING and self._is_ready(activity):
                 logger.debug("setting status for %s to READY", activity.job.name)
                 activity.status = ActivityStatus.READY
+                continue
 
             if activity.status in (ActivityStatus.CANCELLED, ActivityStatus.FAILED):
                 for dep in activity.dependents:
@@ -106,6 +118,11 @@ class Pipeline:
                             activity.status.name,
                         )
                         act.status = ActivityStatus.CANCELLED
+                continue
+            
+            if activity.status is ActivityStatus.COMPLETED and self._have_all_dependents_completed(activity):
+                activity.job.free_memory()
+                
 
     def _update_activities(self):
         for activity in self.activities:

@@ -89,7 +89,6 @@ nav:
   - Features:
     - features/index.md
   - Learn:
-    - learn/index.md
     - learn/quick-start.md
     # - ETL:
     #   - learn/etl/extract.md
