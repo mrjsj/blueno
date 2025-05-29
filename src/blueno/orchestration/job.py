@@ -42,6 +42,7 @@ class BaseJob(ABC):
 
     name: str
     priority: int
+    max_concurrency: int = None
     _current_step: Optional[str] = None
     _transform_fn: Callable[..., DataFrameType]
     _depends_on: Optional[List[BaseJob]] = None
