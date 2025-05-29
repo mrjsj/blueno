@@ -337,7 +337,7 @@ def blueprint(
         write_mode: The write method to use. Defaults to `overwrite`. Options are: `append`, `overwrite`, `upsert`, `incremental`, `replace_range`, and `scd2`.
         format: The format to use. Defaults to `delta`. Options are: `delta`, `parquet`, and `dataframe`. If `dataframe` is used, the blueprint will be stored in memory and not written to a target table.
         priority: Determines the execution order among activities ready to run. Higher values indicate higher scheduling preference, but dependencies and concurrency limits are still respected.
-        max_concurrency: Maximum number of parallel executions allowed when this job is running. 
+        max_concurrency: Maximum number of parallel executions allowed when this job is running.
             When set, limits the global concurrency while this blueprint is running.
             This is useful for blueprints with high CPU or memory requirements. For example, setting max_concurrency=1 ensures this job runs serially, while still allowing other jobs to run in parallel.
             Higher priority jobs will be scheduled first when concurrent limits are reached.

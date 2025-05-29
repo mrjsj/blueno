@@ -68,17 +68,13 @@ class Pipeline:
     # _lock = threading.Lock()
     _running_activities: dict[Future[str], PipelineActivity] = field(default_factory=dict)
 
-
     def _have_all_dependents_completed(self, activity: PipelineActivity) -> bool:
         """Check if all dependents of an activity have completed."""
-        dependent_activities = [
-            a for a in self.activities 
-            if a.job.name in activity.dependents
-        ]
+        dependent_activities = [a for a in self.activities if a.job.name in activity.dependents]
         return all(
             dep.status in (ActivityStatus.COMPLETED, ActivityStatus.SKIPPED)
             for dep in dependent_activities
-        )    
+        )
 
     def _is_ready(self, activity: PipelineActivity) -> bool:
         dep_activities = [
@@ -121,33 +117,40 @@ class Pipeline:
                         )
                         act.status = ActivityStatus.CANCELLED
                 continue
-            
-            if activity.status is ActivityStatus.COMPLETED and self._have_all_dependents_completed(activity):
+
+            if activity.status is ActivityStatus.COMPLETED and self._have_all_dependents_completed(
+                activity
+            ):
                 activity.job.free_memory()
-                
+
     def _can_schedule_activity(self, activity: PipelineActivity, pipeline_concurrency: int) -> bool:
         """Check if an activity can be schedule considering its max_concurrency and it's priority relative to other activity priorities."""
         # If there are no running we can schedule
         if self._running_activities == {}:
             return True
-        
-        # Check if there's a higher prio waiting. 
+
+        # Check if there's a higher prio waiting.
         higher_prio_waiting = any(
-            a for a in self._ready_activities
-            if a.job.priority > activity.job.priority
+            a for a in self._ready_activities if a.job.priority > activity.job.priority
         )
         if higher_prio_waiting:
             return False
 
         # Check if adding a new activity would exceed the max_concurrency of current running activities
-        max_concurrency = min(a.job.max_concurrency or pipeline_concurrency for a in self._running_activities.values())
+        max_concurrency = min(
+            a.job.max_concurrency or pipeline_concurrency for a in self._running_activities.values()
+        )
         if len(self._running_activities) + 1 > max_concurrency:
             return False
-        
+
         # Check if adding a new activity would exceed it's own max_concurrency
-        if activity.job.max_concurrency and len(self._running_activities) >= activity.job.max_concurrency:
+        if (
+            activity.job.max_concurrency
+            and len(self._running_activities)
+            >= activity.job.max_concurrency  # ty: ignore[unsupported-operator]
+        ):
             return False
-        
+
         return True
 
     def _update_activities(self):
@@ -183,7 +186,6 @@ class Pipeline:
         self._update_activities_status()
         self._update_activities()
 
-
         def run_activity(activity: PipelineActivity):
             logger.debug("setting status for activity %s to RUNNING", activity.job.name)
             activity.status = ActivityStatus.RUNNING
@@ -203,12 +205,11 @@ class Pipeline:
             try:
                 while self._has_ready_activities or self._running_activities:
                     for activity in self._ready_activities:
-                        
                         if not self._can_schedule_activity(activity, concurrency):
                             continue
                         # if activity.job.max_concurrency and len(self._running_futures) >= activity.job.max_concurrency:
                         #     continue
-                        
+
                         logger.debug("setting status for activity %s to QUEUED", activity.job.name)
                         activity.status = ActivityStatus.QUEUED
                         future = executor.submit(run_activity, activity)
