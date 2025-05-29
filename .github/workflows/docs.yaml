@@ -28,7 +28,6 @@ jobs:
 
       - name: ensure assets
         run: |
-          mv README.md docs/index.md
           mv assets/images docs/assets/images
 
       - name: test docs

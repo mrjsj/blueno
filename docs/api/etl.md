@@ -2,7 +2,7 @@
 
 ## Extract
 
-### ::: blueno.etl.read.delta_table
+### ::: blueno.etl.read.delta
 
 ### ::: blueno.etl.read.parquet
 
@@ -12,7 +12,7 @@
 ## Load
 
 ### Delta
-#### ::: blueno.etl.load.delta_table
+#### ::: blueno.etl.load.delta
 
 ### DuckLake
 

@@ -26,7 +26,6 @@ format:
 	uv run ruff format
 
 docs:
-	cp README.md docs/index.md
 	cp -r assets/images/* docs/assets/images
 
 serve-docs:

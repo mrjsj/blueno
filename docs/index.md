@@ -1,93 +1,27 @@
-
 ![blueno logo](./assets/images/blueno-128x128.png)
  
-A platform agnostic Python library for writing declarative data pipelines the ***bueno*** way
+# Welcome to blueno!
 
-# blueno
-A collection of Python ETL utilities for working with data pipelines with built in orchestration.
+blueno is your friendly neighborhood Python library for building data pipelines the ***bueno*** way! 
 
-Mainly focused on Data Engineering tasks utilising [Polars](https://github.com/pola-rs/polars) and [delta-rs](https://github.com/delta-io/delta-rs).
+## What is blueno? 🤔
 
-It features **blueprints** as the central orchestration unit, and is inspired by the likes of dbt [models](https://docs.getdbt.com/docs/build/models), SQLMesh [models](https://sqlmesh.readthedocs.io/en/stable/concepts/models/sql_models/) and Dagster's [software defined assets](https://dagster.io/glossary/software-defined-assets).
+blueno is a powerful yet easy-to-use Python library that helps you build and run data pipelines. Think of it as your Swiss Army knife for data engineering tasks! It's built on top of amazing tools like [Polars](https://github.com/pola-rs/polars) for fast data processing and [delta-rs](https://github.com/delta-io/delta-rs) for reliable data storage.
 
-While it also has features for running on Microsoft Fabric, its utilities are decoupled in a way to let you choose your own storage and compute.
+### Why blueno?
 
+- **Local Development First**: Write and test your data pipelines on your laptop
+- **ETL Made Easy**: Simple tools for extracting, transforming, and loading data
+- **Blueprints**: Write clean, declarative data pipelines that are easy to understand
+- **Platform Agnostic**: Works with your choice of storage and compute
 
-## Table of contents
+### Inspired By The Best
 
-- [Table of contents](#table-of-contents)
-- [Installation](#installation)
-- [Features](#features)
-  - [Local development first](#local-development-first)
-  - [Remote code execution](#remote-code-execution)
-  - [ETL helper functions](#etl-helper-functions)
-  - [Blueprints](#blueprints)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
+Our blueprint system is inspired by great tools like:
+- dbt [models](https://docs.getdbt.com/docs/build/models)
+- SQLMesh [models](https://sqlmesh.readthedocs.io/en/stable/concepts/models/sql_models/)
+- Dagster's [software defined assets](https://dagster.io/glossary/software-defined-assets)
 
-## Installation
-Regular installation:
-```bash
-pip install blueno
-```
+## Ready to Start? 🚀
 
-For Microsoft Fabric or Azure:
-```bash
-pip install "blueno[azure]"
-```
-
-## Features
-
-### Local development first
-Aim to provide a local development environment. This means you can develop, run code and store data locally as part of your development cycle. You can also read and write to Azure Data Lake or Microsoft Fabric lakehouses.
-
-### Remote code execution
-While local development is favored, sometimes we need run our data pipelines a real setting. The library lets you run code directly in Microsoft Fabric.
-
-### ETL helper functions
-- Read from delta tables or parquet files with automatic authentication to Azure Data Lake or OneLake
-- Common transformations (add audit columns, reorder columns, deduplicate etc.)
-- Load delta tables with one of the provided load methods (upsert, overwrite, append etc.)
-
-### Blueprints
-Blueprints is a feature to declaratively specify your entities in your data pipelines.
-
-Configuration such as storage location, write behaviour and other configuration is set in the decorator, while the function itself only is concerned about business logic.
-
-```python
-from blueno import blueprint, Blueprint
-import polars as pl
-
-workspace_name = ...
-lakehouse_name = ...
-
-lakehouse_base_uri = f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/{lakehouse_name}.Lakehouse/Tables"
-
-@blueprint(
-    table_uri=f"{lakehouse_base_uri}/silver/customer",
-    primary_keys=["customer_id"],
-    write_mode="overwrite",
-)
-def silver_customer(self: Blueprint, bronze_customer: pl.DataFrame) -> pl.DataFrame:
-    
-    # Deduplicate customers
-    df = bronze_customers.unique(subset=self.primary_keys)
-
-    return df
-```
-
-Given you also specified a blueprint for `bronze_customer` specified as a dependency for `silver_customer`, the blueprints will automatically be wired and executed in the correct order.
-
-See the documentation for an elaborate example.
-
-## Documentation
-For quick start and detailed documentation, examples, and API reference, visit our [GitHub Pages documentation](https://mrjsj.github.io/blueno/).
-
-## Contributing
-Contributions are welcome! Here are some ways you can contribute:
-
-- Report bugs and feature requests through GitHub issues
-- Submit pull requests for bug fixes or new features
-- Improve documentation
-- Share ideas for new utilities
-
+Check out our [Quick Start Guide](learn/quick-start.md) to begin your journey with blueno!
