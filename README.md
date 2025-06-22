@@ -12,6 +12,13 @@ It features **blueprints** as the central orchestration unit, and is inspired by
 
 While it also has features for running on Microsoft Fabric, its utilities are decoupled in a way to let you choose your own storage and compute.
 
+## Demo of sequential run
+
+![blueno-demo-concurrency-1](./docs/assets/blueno-demo-concurrency-1.gif)
+
+## Demo of parallel run
+
+![blueno-demo-concurrency-1](./docs/assets/blueno-demo-concurrency-2.gif)
 
 ## Table of contents
 
