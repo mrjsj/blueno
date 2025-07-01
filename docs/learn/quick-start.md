@@ -41,12 +41,12 @@ import time
 
 import polars as pl
 
-from blueno import Blueprint, DataFrameType, blueprint
+from blueno import Blueprint, DataFrameType
 
 RAND_SIZE = 10
 
 
-@blueprint(table_uri="lakehouse/bronze/product")
+@Blueprint.register(table_uri="lakehouse/bronze/product", format="delta")
 def bronze_product() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -61,7 +61,7 @@ def bronze_product() -> DataFrameType:
     return df
 
 
-@blueprint(table_uri="lakehouse/bronze/transaction")
+@Blueprint.register(table_uri="lakehouse/bronze/transaction", format="delta")
 def bronze_transaction() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -75,8 +75,9 @@ def bronze_transaction() -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/product",
+    format="delta",    
     primary_keys=["product_id"],
 )
 def silver_product(self: Blueprint, bronze_product: DataFrameType) -> DataFrameType:
@@ -86,8 +87,9 @@ def silver_product(self: Blueprint, bronze_product: DataFrameType) -> DataFrameT
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/transaction",
+    format="delta",
     primary_keys=["product_id"],
 )
 def silver_transaction(bronze_transaction: DataFrameType) -> DataFrameType:
@@ -97,8 +99,9 @@ def silver_transaction(bronze_transaction: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/gold/sales_metric",
+    format="delta",
     write_mode="incremental",
     incremental_column="transaction_date",
 )

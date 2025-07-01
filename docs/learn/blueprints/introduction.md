@@ -13,7 +13,7 @@ The example just returns a dataframe, however, it could be any source, e.g. read
 from blueno import blueprint, Blueprint, DataFrameType
 
 
-@blueprint
+@Blueprint.register
 def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -44,10 +44,11 @@ The product blueprint now has proper columns; `product_id` and `product_name`. W
 In addition, the blueprint decorator is now supplied with the `table_uri` parameter, so that they are stored in delta tables when run.
 
 ```python
-from blueno import blueprint, Blueprint, DataFrameType
+from blueno import Blueprint, DataFrameType
 
-@blueprint(
-    table_uri="lakehouse/bronze/products"
+@Blueprint.register(
+    table_uri="lakehouse/bronze/products",
+    format="delta",    
 )
 def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
@@ -60,8 +61,9 @@ def bronze_products() -> DataFrameType:
 
     return df
 
-@blueprint(
-    table_uri="lakehouse/bronze/customers"
+@Blueprint.register(
+    table_uri="lakehouse/bronze/customers",
+    format="delta",    
 )
 def bronze_customers() -> DataFrameType:
     df = pl.DataFrame(
@@ -73,8 +75,9 @@ def bronze_customers() -> DataFrameType:
 
     return df
 
-@blueprint(
-    table_uri="lakehouse/bronze/sales"
+@Blueprint.register(
+    table_uri="lakehouse/bronze/sales",
+    format="delta",    
 )
 def bronze_sales() -> DataFrameType:
     df = pl.DataFrame(
@@ -105,11 +108,12 @@ In addition, transactions with a `quantity` of zero are removed.
 
 
 ```python
-from blueno import blueprint, Blueprint
+from blueno import Blueprint
 from blueno.types import DataFrameType
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/products",
+    format="delta",    
     primary_keys=["product_id"],
 )
 def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFrameType:
@@ -118,8 +122,9 @@ def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFram
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/customers",
+    format="delta",    
     primary_keys=["customer_id"],
 )
 def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFrameType:
@@ -128,8 +133,9 @@ def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFr
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/transactions",
+    format="delta",
     primary_keys=["product_id"],
 )
 def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
@@ -151,11 +157,12 @@ In the `silver_products` and `silver_customers` blueprints you can also see the 
 Lastly, we will add the metrics table in the gold layer, which combines the three silver tables:
 
 ```python
-from blueno import blueprint
+from blueno import Blueprint
 from blueno.types import DataFrameType
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/gold/sales_metrics",
+    format="delta",    
     write_mode="incremental",
     incremental_column="transaction_date",
 )

@@ -9,20 +9,20 @@ This could for example be a Slack notification or a web hook request, or some cu
 
 
 ```python
-from blueno import blueprint, Blueprint, task
+from blueno import Blueprint, Task
 import logging
 
 logger = logging.getLogger(__name__)
 
-@task
+@Task.register()
 def notify_start() -> None:
     logger.info("Blueno data pipeline started.")
 
-@blueprint(notify_start)
-def some_blueprint_definition():
+@Blueprint.register()
+def some_blueprint_definition(notify_start):
     ...
 
-@task
+@Task.register()
 def notify_end(some_blueprint_definition) -> None:
     logger.info("Blueno data pipeline ended.")
 
