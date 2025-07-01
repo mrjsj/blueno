@@ -2,7 +2,12 @@
 
 from blueno.utils.misc import quote_identifier, remove_none, separator_indices, shorten_dict_values
 
-from .delta import get_max_column_value, get_min_column_value, get_or_create_delta_table
+from .delta import (
+    get_last_modified_time,
+    get_max_column_value,
+    get_min_column_value,
+    get_or_create_delta_table,
+)
 from .merge_helpers import (
     build_merge_predicate,
     build_when_matched_update_columns,
@@ -11,6 +16,7 @@ from .merge_helpers import (
 from .string_normalization import character_translation, to_snake_case
 
 __all__ = (
+    "get_last_modified_time",
     "get_or_create_delta_table",
     "separator_indices",
     "quote_identifier",

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Any
 
 import polars as pl
@@ -32,6 +33,48 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema | pa.Schema) -> 
     return dt
 
 
+def get_last_modified_time(table_uri: str) -> datetime:
+    """Retrieves the last modified time of a Delta table.
+
+    Args:
+        table_uri: A string URI to a Delta table.
+
+    Returns:
+        The last modified time of the table, or None if the table does not exist.
+
+    Example:
+    ```python notest
+    from blueno.utils import get_last_modified_time
+
+    last_modified = get_last_modified_time("path/to/delta_table")
+    ```
+    """
+    storage_options = get_storage_options(table_uri)
+
+    if isinstance(table_uri, str):
+        if not DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
+            return datetime(1970, 1, 1)  # Return epoch time if table does not exist
+
+    # Tracked operations
+    operation = [
+        "CREATE OR REPLACE TABLEWRITE",
+        "DELETE",
+        "UPDATE",
+        "MERGE",
+        "STREAMING UPDATE",
+    ]
+
+    metadata = DeltaTable(table_uri, storage_options=storage_options).history(50)
+    timestamp = next(
+        commit.get("timestamp") for commit in metadata if commit.get("operation") in operation
+    )
+
+    if timestamp is None:
+        return datetime(1970, 1, 1)  # Return epoch time if no timestamp found
+
+    return datetime.fromtimestamp(timestamp / 1000)
+
+
 def get_max_column_value(table_or_uri: str | DeltaTable, column_name: str) -> Any:
     """Retrieves the maximum value of the specified column from a Delta table.
 
@@ -40,7 +83,7 @@ def get_max_column_value(table_or_uri: str | DeltaTable, column_name: str) -> An
         column_name: The name of the column.
 
     Returns:
-        The maximum value of the column, or 0 if the table does not exist.
+        The maximum value of the column, or None if the table does not exist.
 
     Example:
     ```python notest
@@ -72,7 +115,7 @@ def get_min_column_value(table_or_uri: str | DeltaTable, column_name: str) -> An
         column_name: The name of the column.
 
     Returns:
-        The minimum value of the column, or 0 if the table does not exist.
+        The minimum value of the column, or None if the table does not exist.
 
     Example:
     ```python notest

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import types
 from dataclasses import dataclass
 from typing import Optional
 
@@ -17,58 +16,51 @@ class Task(BaseJob):
     @track_step
     def run(self):
         """Running the task."""
-        self._transform_fn(*self.depends_on)
+        self._fn(*self.depends_on)
+
+    @classmethod
+    def register(
+        cls,
+        *,
+        name: Optional[str] = None,
+        priority: int = 100,
+    ):
+        """Create a definition for task.
+
+        A task can be anything and doesn't need to provide an output.
+
+        Args:
+            name: The name of the blueprint. If not provided, the name of the function will be used. The name must be unique across all blueprints.
+            priority: Determines the execution order among activities ready to run. Higher values indicate higher scheduling preference, but dependencies and concurrency limits are still respected.
+
+        Example:
+            **Creates a task for the `notify_end`, which is depends on a gold blueprint.**
+
+            ```python
+            from blueno import blueprint, Blueprint, Task
+            import logging
+
+            logger = logging.getLogger(__name__)
 
 
-def task(
-    _func=None,
-    *,
-    name: Optional[str] = None,
-    priority: int = 100,
-):
-    """Create a definition for task.
+            @Task.register()
+            def notify_end(gold_metrics: Blueprint) -> None:
+                logger.info("Gold metrics ran successfully")
 
-    A task can be anything and doesn't need to provide an output.
+                # Send message on Slack
+            ```
+        """
 
-    Args:
-        name: The name of the blueprint. If not provided, the name of the function will be used. The name must be unique across all blueprints.
-        priority: Determines the execution order among activities ready to run. Higher values indicate higher scheduling preference, but dependencies and concurrency limits are still respected.
+        def decorator(func):
+            _name = name or func.__name__
+            print(_name)
+            task = cls(
+                name=_name,
+                _fn=func,
+                priority=priority,
+            )
+            task._register(job_registry)
+            return task
 
-    Example:
-        **Creates a task for the `notify_end`, which is depends on a gold blueprint.**
+        return decorator
 
-        ```python
-        from blueno import blueprint, Blueprint, task
-        import logging
-
-        logger = logging.getLogger(__name__)
-
-
-        @task
-        def notify_end(gold_metrics: Blueprint) -> None:
-            logger.info("Gold metrics ran successfully")
-
-            # Send message on Slack
-        ```
-    """
-
-    # TODO: Input validation
-    def decorator(func: types.FunctionType):
-        _name = name or func.__name__
-
-        task = Task(
-            name=_name,
-            _transform_fn=func,
-            priority=priority,
-        )
-
-        task._register(job_registry)
-
-        return task
-
-    # If used as @task
-    if _func is not None and callable(_func):
-        return decorator(_func)
-
-    # If used as @task(...)
-    return decorator

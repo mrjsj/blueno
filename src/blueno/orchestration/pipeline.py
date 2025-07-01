@@ -10,6 +10,7 @@ from fnmatch import fnmatch
 from functools import lru_cache
 from typing import List, Optional
 
+from blueno.exceptions import BluenoUserError
 from blueno.orchestration.job import BaseJob
 
 # class Trigger(Enum):
@@ -264,6 +265,36 @@ def create_pipeline(jobs: list[BaseJob], subset: Optional[List[str]] = None) -> 
         # for dep in job.depends_on:
         #     activity.in_degrees += 1
         pipeline.activities.append(activity)
+
+    def find_circular_dependencies(jobs):
+        visited = set()
+        stack = []
+
+        def visit(job):
+            if job.name in stack:
+                cycle_start = stack.index(job.name)
+                cycle = stack[cycle_start:] + [job.name]
+                return cycle
+            if job.name in visited:
+                return None
+            stack.append(job.name)
+            for dep in job.depends_on:
+                result = visit(dep)
+                if result:
+                    return result
+            stack.pop()
+            visited.add(job.name)
+            return None
+
+        for job in jobs:
+            result = visit(job)
+            if result:
+                return result
+        return None
+
+    cycle = find_circular_dependencies(jobs)
+    if cycle:
+        raise BluenoUserError(f"Cycle detected in job dependencies: {' -> '.join(reversed(cycle))}")
 
     # Step 2: Link dependencies
     name_to_activity = {activity.job.name: activity for activity in pipeline.activities}

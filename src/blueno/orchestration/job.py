@@ -44,7 +44,7 @@ class BaseJob(ABC):
     priority: int
     max_concurrency: Optional[int] = None
     _current_step: Optional[str] = None
-    _transform_fn: Callable[..., DataFrameType]
+    _fn: Callable[..., DataFrameType]
     _depends_on: Optional[List[BaseJob]] = None
 
     @track_step
@@ -72,7 +72,7 @@ class BaseJob(ABC):
         if self._depends_on is not None:
             return self._depends_on
 
-        sig = inspect.signature(self._transform_fn)
+        sig = inspect.signature(self._fn)
 
         dependencies = list(sig.parameters.keys())
 
@@ -100,6 +100,15 @@ class BaseJob(ABC):
 
         self._depends_on = inputs
         return self._depends_on
+
+    @classmethod
+    @abstractmethod
+    def register(cls, *args, **kwargs) -> BaseJob:
+        """A class method to create a decorator for the job.
+
+        This method should be implemented by concrete job classes to define their decorator logic.
+        """
+        raise NotImplementedError("This method should be implemented by subclasses.")
 
     @abstractmethod
     def run(self) -> None:

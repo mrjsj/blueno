@@ -2,4 +2,9 @@ from typing import TypeAlias, Union
 
 import polars as pl
 
-DataFrameType: TypeAlias = Union[pl.DataFrame, pl.LazyFrame]
+try:
+    import duckdb
+
+    DataFrameType: TypeAlias = Union[pl.DataFrame, pl.LazyFrame, duckdb.DuckDBPyRelation]
+except ImportError:
+    DataFrameType: TypeAlias = Union[pl.DataFrame, pl.LazyFrame]

@@ -1,5 +1,7 @@
 .PHONY: blueno ty test lint format pre-commit docs
 
+uv-sync:
+	uv sync --all-extras --all-groups
 
 blueno:
 	uv run blueno
