@@ -4,7 +4,7 @@ import time
 import shutil
 import polars as pl
 
-from blueno import Blueprint, DataFrameType, blueprint, task
+from blueno import Blueprint, DataFrameType, Task
 
 RAND_SIZE = 0.5
 
@@ -13,7 +13,7 @@ tmp_dir = f"{tempfile.gettempdir()}/blueno/blueno-test"
 
 shutil.rmtree(tmp_dir, True)
 
-@task
+@Task.register()
 def notify_begin() -> None:
     import logging
 
@@ -21,14 +21,14 @@ def notify_begin() -> None:
     logging.warning("I notified u!")
 
 
-@task
+@Task.register()
 def notify_end(gold_sales_metrics) -> None:
     import logging
 
     logging.warning("I notified u!")
 
 
-@blueprint(table_uri=f"{tmp_dir}/bronze/products")
+@Blueprint.register(table_uri=f"{tmp_dir}/bronze/products")
 def bronze_products(notify_begin) -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -43,7 +43,7 @@ def bronze_products(notify_begin) -> DataFrameType:
     return df
 
 
-@blueprint(format="dataframe")
+@Blueprint.register(format="dataframe")
 def landing_customers() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -56,7 +56,7 @@ def landing_customers() -> DataFrameType:
     return df
 
 
-@blueprint(table_uri=f"{tmp_dir}/bronze/customers")
+@Blueprint.register(table_uri=f"{tmp_dir}/bronze/customers")
 def bronze_customers(landing_customers) -> DataFrameType:
     df = landing_customers
     time.sleep(random.random() * RAND_SIZE)
@@ -64,7 +64,7 @@ def bronze_customers(landing_customers) -> DataFrameType:
     return df
 
 
-@blueprint(table_uri=f"{tmp_dir}/bronze/transactions")
+@Blueprint.register(table_uri=f"{tmp_dir}/bronze/transactions")
 def bronze_transactions() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -79,7 +79,7 @@ def bronze_transactions() -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{tmp_dir}/silver/products",
     primary_keys=["product_id"],
 )
@@ -90,7 +90,7 @@ def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFram
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{tmp_dir}/silver/customers",
     primary_keys=["customer_id"],
 )
@@ -101,7 +101,7 @@ def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFr
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{tmp_dir}/silver/transactions",
     primary_keys=["product_id"],
 )
@@ -112,7 +112,7 @@ def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{tmp_dir}/gold/sales_metrics",
     write_mode="incremental",
     incremental_column="transaction_date",
