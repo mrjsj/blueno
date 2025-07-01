@@ -2,8 +2,8 @@
 
 ## Blueprint
 
-### ::: blueno.orchestration.blueprint.blueprint
+### ::: blueno.orchestration.blueprint.Blueprint.register
 
 ## Task
 
-### ::: blueno.orchestration.task.task
+### ::: blueno.orchestration.task.Task.register

@@ -101,7 +101,7 @@ class Blueprint(BaseJob):
 
         Example:
             ```python
-            from blueno import blueprint, Blueprint, DataFrameType
+            from blueno import Blueprint, DataFrameType
 
 
             @Blueprint.register(

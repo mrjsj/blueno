@@ -37,7 +37,7 @@ class Task(BaseJob):
             **Creates a task for the `notify_end`, which is depends on a gold blueprint.**
 
             ```python
-            from blueno import blueprint, Blueprint, Task
+            from blueno import Blueprint, Task
             import logging
 
             logger = logging.getLogger(__name__)
