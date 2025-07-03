@@ -13,7 +13,7 @@ The example just returns a dataframe, however, it could be any source, e.g. read
 from blueno import blueprint, Blueprint, DataFrameType
 
 
-@Blueprint.register
+@Blueprint.register()
 def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
         {
