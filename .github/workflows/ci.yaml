@@ -52,4 +52,4 @@ jobs:
 
       - name: Run contoso example
         run: |
-          make contoso          
+          make test-contoso          
