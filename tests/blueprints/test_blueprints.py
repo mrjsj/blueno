@@ -157,7 +157,7 @@ def test_blueprint_transform_and_invalid_schema_validation():
 
     bp = test_func
     bp.transform()
-    with pytest.raises(AssertionError):
+    with pytest.raises(BluenoUserError, match="Schema validation failed"):
         bp.validate_schema()  # Should raise
 
 
