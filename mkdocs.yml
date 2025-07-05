@@ -98,6 +98,7 @@ nav:
       - learn/blueprints/introduction.md
       - learn/blueprints/tasks.md
       - learn/blueprints/custom_jobs.md
+    - learn/examples.md
     # - Microsoft Fabric:
     #   - learn/microsoft-fabric/index.md
   - API Reference:
