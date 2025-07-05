@@ -460,11 +460,6 @@ class Blueprint(BaseJob):
             write_parquet(self.table_uri, self._dataframe, partition_by=self.partition_by)
             return
 
-        if self.format not in self._write_modes:
-            msg = "invalid write_mode %s for %s for %s %s"
-            logger.error(msg, self.write_mode, self.format, self.type, self.name)
-            raise GenericBluenoError(msg % (self.write_mode, self.format, self.type, self.name))
-
         self._write_modes.get(self.write_mode)()
 
         logger.debug(
