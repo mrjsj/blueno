@@ -99,6 +99,7 @@ class Blueprint(BaseJob):
             freshness: Optional freshness threshold for the blueprint.
                 Only applicable if the format is `delta`.
                 If set, the blueprint will only be processed if the delta table's last modification time is older than the freshness threshold.
+            **kwargs: Additional keyword arguments to pass to the blueprint. This is used when extending the blueprint with custom attributes or methods.
 
         Example:
             ```python
@@ -555,4 +556,3 @@ class Blueprint(BaseJob):
         self.post_transform()
         self.validate_schema()
         self.write()
-
