@@ -250,3 +250,117 @@ print(df)
 | 2025-01-02        | CUST02      | 2          | 1                         | 9.99         |
 | 2025-01-01        | CUST01      | 3          | 2                         | 59.98        |
 
+## Extending the `Blueprint` class
+
+Sometimes, the built-in write methods or post-processing steps in `Blueprint` might not be enough for your needs. In these cases, you can create your own class that inherits from `Blueprint` and override specific methods or properties.
+
+For example, let’s say you want to:
+- Add a post-processing step that extracts the date from a timestamp column.
+- Add a custom write method that overwrites only specific partitions in your table.
+
+To do this, you’ll need to override the following properties or methods:
+- `_extend_post_transforms` to add your custom post-processing.
+- `_extend_write_modes` to add your custom write method.
+- Optionally, `_extend_input_validations` to add extra input checks.
+
+### Add a custom post transformation
+
+First, create a new class that inherits from `Blueprint`. Add a method to extract the date from a timestamp column, and register it in `_extend_post_transforms`:
+
+```python
+from blueno import Blueprint
+from dataclasses import dataclass
+import polars as pl
+from typing import Optional, Dict, Callable
+
+@dataclass(kw_only=True)
+class CustomBlueprint(Blueprint):
+    date_partition_column: Optional[str] = None
+
+    def _add_date_partition(self) -> pl.DataFrame:
+        self._dataframe = self._dataframe.with_columns(
+            pl.col(self.date_partition_column).dt.date().alias("date"),
+        )
+
+    @property
+    def _extend_post_transforms(self) -> Dict[str, Callable]:
+        return {
+            "add_date_partition": self._add_date_partition
+        }
+```
+
+### Use your custom blueprint
+
+Now you can use your new class and specify the custom post-transform:
+
+```python
+from datetime import datetime, timezone
+
+@CustomBlueprint.register(
+    date_partition_column="ts",
+    post_transforms=["add_date_partition"]
+)
+def my_transformation():
+    df = pl.DataFrame({
+        "a": [1],
+        "ts": [datetime.now(timezone.utc)]
+    })
+    return df
+```
+
+### Add custom input validation (optional, but recommended)
+
+To make sure users don’t forget to set `date_partition_column` when using your post-transform, you can add a validation rule:
+
+```python
+from typing import List, Tuple
+
+@dataclass(kw_only=True)
+class CustomBlueprint(Blueprint):
+    # ...existing code...
+
+    @property
+    def _extend_input_validations(self) -> List[Tuple[bool, str]]:
+        return [
+            (
+                "add_date_partition" in self._post_transforms and not isinstance(self.date_partition_column, str),
+                "date_partition_column must be provided when add_date_partition post_transform is set"
+            )
+        ]
+```
+
+### Add a custom write mode
+
+You can also add a write method that only overwrites the partitions present in your dataframe:
+
+```python
+from deltalake import write_deltalake
+
+@dataclass(kw_only=True)
+class CustomBlueprint(Blueprint):
+    # ...existing code...
+
+    def _write_mode_overwrite_partition(self) -> None:
+        partitions = self._dataframe.select("date").unique().to_dict(as_series=False).get("date", [])
+        partitions_str = [partition.strftime("%Y-%m-%d") for partition in partitions]
+        partition_predicate = f"""date in ('{"','".join(partitions_str)}')""" if partitions_str else None
+
+        write_deltalake(
+            table_or_uri=self.table_uri,
+            data=self._dataframe.to_arrow(),
+            partition_by=["date"],
+            mode="overwrite",
+            predicate=partition_predicate,
+        )
+
+    @property
+    def _extend_write_modes(self) -> Dict[str, Callable]:
+        return {
+            "overwrite_partition": self._write_mode_overwrite_partition
+        }
+```
+
+---
+
+For a complete, working example, see the:
+https://github.com/mrjsj/blueno/blob/main/tests/blueprints/test_custom_blueprint.py
