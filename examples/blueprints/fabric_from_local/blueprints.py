@@ -1,6 +1,6 @@
 import polars as pl
 
-from blueno import Blueprint, DataFrameType, blueprint
+from blueno import Blueprint, DataFrameType
 from . import config
 
 

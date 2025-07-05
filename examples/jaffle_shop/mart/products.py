@@ -1,4 +1,4 @@
-from blueno import Blueprint, blueprint, DataFrameType
+from blueno import Blueprint, DataFrameType
 import polars as pl
 
 

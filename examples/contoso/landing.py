@@ -1,4 +1,4 @@
-from blueno import blueprint, DataFrameType, Blueprint
+from blueno import DataFrameType, Blueprint
 import polars as pl
 
 contoso_source_base_uri = "data_generator/out/"
@@ -89,8 +89,7 @@ def landing_product() -> DataFrameType:
     primary_keys=["OrderKey", "LineNumber"],
     write_mode="scd2_by_column",
     incremental_column="OrderDate",
-    valid_from_column="valid_from",
-    valid_to_column="valid_to"
+    scd2_column="OrderDate",
 )
 def landing_sales(self: Blueprint) -> DataFrameType:
     

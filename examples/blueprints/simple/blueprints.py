@@ -3,7 +3,7 @@ import time
 
 import polars as pl
 
-from blueno import Blueprint, DataFrameType, blueprint
+from blueno import Blueprint, DataFrameType
 
 RAND_SIZE = 10
 
