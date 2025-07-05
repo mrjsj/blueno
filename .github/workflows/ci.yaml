@@ -45,3 +45,11 @@ jobs:
       - name: Run unit tests
         run: |
           make unit-test
+
+      - name: Run jaffle shop example
+        run: |
+          make test-jaffle
+
+      - name: Run contoso example
+        run: |
+          make contoso          

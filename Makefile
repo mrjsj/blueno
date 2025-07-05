@@ -40,3 +40,11 @@ run:
 	uv run pytest -s -vvvv tests/blueprints/test_blueprints.py::test_blueprint_simple_example --doctest-modules
 
 pre-commit:	lint format ty unit-test docs-test docs
+
+test-jaffle:
+	uv run blueno run --project-dir examples/jaffle_shop --concurrency 4
+	rm -rf jaffle_shop
+
+test-contoso:
+	uv run blueno run --project-dir examples/contoso --concurrency 4
+	rm -rf contoso
