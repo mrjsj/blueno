@@ -2,13 +2,12 @@ from datetime import datetime
 from typing import Any
 
 import polars as pl
-import pyarrow as pa
 from deltalake import DeltaTable
 
 from blueno.auth import get_storage_options
 
 
-def get_or_create_delta_table(table_uri: str, schema: pl.Schema | pa.Schema) -> DeltaTable:
+def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
     """Retrieves a Delta table or creates a new one if it does not exist.
 
     Args:

@@ -147,8 +147,7 @@ class Pipeline:
         # Check if adding a new activity would exceed it's own max_concurrency
         if (
             activity.job.max_concurrency
-            and len(self._running_activities)
-            >= activity.job.max_concurrency  # ty: ignore[unsupported-operator]
+            and len(self._running_activities) >= activity.job.max_concurrency  # ty: ignore[unsupported-operator]
         ):
             return False
 

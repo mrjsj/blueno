@@ -35,7 +35,8 @@ class _CustomFormatter(logging.Formatter):
 
 app = App(default_parameter=Parameter(negative=()))
 global_args = Group(
-    name="Global arguments", default_parameter=Parameter(show_default=False, negative=())
+    name="Global arguments",  # type: ignore[call-arg] # False positive
+    default_parameter=Parameter(show_default=False, negative=()),
 )
 
 
@@ -102,6 +103,7 @@ def run(
     else:
         pipeline.run(concurrency=concurrency)
 
+
 @app.command
 def preview(
     project_dir: str,
@@ -123,14 +125,18 @@ def preview(
     """
     _setup_logging(log_level, display_mode=None)
     _prepare_blueprints(project_dir)
-    
+
     blueprint = job_registry.jobs.get(transformation_name)
     if not blueprint:
-        msg = "Transformation '%s' not found in the project directory '%s'." % (transformation_name, project_dir)
+        msg = "Transformation '%s' not found in the project directory '%s'." % (
+            transformation_name,
+            project_dir,
+        )
         logger.error(msg)
         raise BluenoUserError(msg)
 
     blueprint.preview()
+
 
 @app.command
 def run_remote(

@@ -427,7 +427,7 @@ class Blueprint(BaseJob):
         if self._dataframe is not None:
             logger.debug("reading %s %s from %s", self.type, self.name, "dataframe")
             return self._dataframe
-        
+
         if self._preview:
             logger.debug("reading %s %s from preview", self.type, self.name)
             self.preview(show_preview=False)
@@ -481,7 +481,7 @@ class Blueprint(BaseJob):
             for input in self.depends_on:
                 if hasattr(input, "preview"):
                     input.preview(show_preview=False)
-                
+
         self._inputs = [
             input.read() if hasattr(input, "read") else input for input in self.depends_on
         ]
@@ -551,7 +551,7 @@ class Blueprint(BaseJob):
         else:
             schema_frame = pl.DataFrame(schema=self.schema)
 
-        try: 
+        try:
             assert_frame_equal(self._dataframe.limit(0), schema_frame, check_column_order=False)
         except AssertionError as e:
             msg = f"Schema validation failed for {self.type} {self.name}: {str(e)}"
