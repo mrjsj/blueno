@@ -20,7 +20,6 @@ def mart_order_items(
             pl.col("supply_cost").sum()
         )
     )
-    print(order_supplies_summary)
     joined = (
         stage_order_items
         .join(
@@ -47,6 +46,5 @@ def mart_order_items(
             "supply_cost"
         )
     )
-    print(joined)
 
     return joined
