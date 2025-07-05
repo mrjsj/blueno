@@ -33,7 +33,7 @@ Using the medallion architecture the example consists of:
 
 - three mocked bronze source tables
 - three silver tables
--  and a single gold table.
+- and a single gold table.
 
 ```python
 import random
@@ -127,7 +127,33 @@ def gold_sales_metric(
 
 ```
 
+## Preview a blueprint
+Before materializing the tables, or when working on transformations, it's a good idea to **preview** a transformation first.
+
+For example, we can preview the `silver_product` transformation
+
+```bash
+blueno preview --project-dir ./blueprints --transformation-name silver_product
+```
+
+This will show the dataframe printed to the terminal.
+
+```bash
+shape: (3, 3)
+┌────────────┬──────────────┬───────┐
+│ product_id ┆ product_name ┆ price │
+│ ---        ┆ ---          ┆ ---   │
+│ i64        ┆ str          ┆ f64   │
+╞════════════╪══════════════╪═══════╡
+│ 3          ┆ tent         ┆ 29.99 │
+│ 2          ┆ bat          ┆ 9.99  │
+│ 1          ┆ ball         ┆ 4.99  │
+└────────────┴──────────────┴───────┘
+```
+
+
 ## Run the blueprints
+Now that we validated the transformation outputs the correct data, we can run and materialize all the blueprints.
 
 Run using one of the options below by pointing the project directory to the folder you saved the `example.py` to.
 //// tab | CLI
@@ -146,8 +172,10 @@ run(project_dir="./blueprints", concurrency=2)
 ```
 ////
 
-You should see a table with the run status of the blueprints in the DAG.
+You should see a table with the run status of the blueprints in the DAG similar to the one below.
 
+![quick-start-example](../assets/blueno-quick-start.gif)
+ 
 ## Result
 
 Once complete, you can navigate to the created lakehouse folder and discover what the was created.
