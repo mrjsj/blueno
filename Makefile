@@ -19,10 +19,13 @@ ty:
 	uv run ty check src --error-on-warning
 
 unit-test:
-	uv run pytest -s -vvvv tests
+	uv run pytest -s -vvvv tests --ignore=tests/fuzz
 
 docs-test:
 	uv run pytest -s -vvvv --markdown-docs docs src
+
+fuzz-test:
+	uv run pytest -s -vvvv tests/fuzz
 
 lint:
 	uv run ruff check --fix

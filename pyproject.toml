@@ -81,6 +81,7 @@ docs = [
 dev = [
     "freezegun>=1.5.1",
     "graphviz>=0.20.3",
+    "hypothesis>=6.135.26",
     "pytest>=8.3.5",
     "python-dotenv>=1.1.0",
     "ruff>=0.11.12",
