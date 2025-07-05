@@ -59,7 +59,7 @@ def test_custom_blueprint():
 
     # Create an instance of the custom blueprint
     @CustomBlueprint.register(
-        table_uri="tmp/test_delta",
+        table_uri="/tmp/test_delta",
         date_partition_column="ts",
         post_transforms=["add_date_partition"],
         write_mode="overwrite_partition",
@@ -85,7 +85,7 @@ def test_custom_blueprint():
     bp = job_registry.jobs.get("my_blueprint_func")
 
     assert isinstance(bp, CustomBlueprint)
-    assert bp.table_uri == "tmp/test_delta"
+    assert bp.table_uri == "/tmp/test_delta"
     assert bp.date_partition_column == "ts"
     assert "add_date_partition" in bp._post_transforms
 
