@@ -293,10 +293,12 @@ class CustomBlueprint(Blueprint):
 
 Now you can use your new class and specify the custom post-transform:
 
-```python
+```{.python continuation}
 from datetime import datetime, timezone
 
 @CustomBlueprint.register(
+    table_uri="/tmp/my_deltatable",
+    format="delta",
     date_partition_column="ts",
     post_transforms=["add_date_partition"]
 )
@@ -312,7 +314,7 @@ def my_transformation():
 
 To make sure users don’t forget to set `date_partition_column` when using your post-transform, you can add a validation rule:
 
-```python
+```{.python continuation}
 from typing import List, Tuple
 
 @dataclass(kw_only=True)
@@ -333,7 +335,7 @@ class CustomBlueprint(Blueprint):
 
 You can also add a write method that only overwrites the partitions present in your dataframe:
 
-```python
+```{.python continuation}
 from deltalake import write_deltalake
 
 @dataclass(kw_only=True)
