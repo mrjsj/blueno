@@ -4,7 +4,7 @@ from datetime import date
 
 
 @Blueprint.register(
-    table_uri="lakehouse/mart/calendar",
+    table_uri="jaffle_shop/mart/calendar",
     format="delta"
 )
 def mart_calendar():

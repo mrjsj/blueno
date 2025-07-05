@@ -2,7 +2,7 @@ from blueno import Blueprint, DataFrameType
 
 
 @Blueprint.register(
-    table_uri="lakehouse/mart/locations",
+    table_uri="jaffle_shop/mart/locations",
     format="delta"
 )
 def mart_locations(stage_locations: DataFrameType):

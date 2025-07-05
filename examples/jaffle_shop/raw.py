@@ -4,7 +4,7 @@ import polars as pl
 
 base_url = "https://dbt-tutorial-public.s3.us-west-2.amazonaws.com/long_term_dataset"
 
-lakehouse_base_url = "lakehouse/raw/"
+lakehouse_base_url = "jaffle_shop/raw/"
 
 
 @Blueprint.register(

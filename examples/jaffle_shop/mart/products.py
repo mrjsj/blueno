@@ -3,7 +3,7 @@ import polars as pl
 
 
 @Blueprint.register(
-    table_uri="lakehouse/mart/products",
+    table_uri="jaffle_shop/mart/products",
     format="delta"
 )
 def mart_products(stage_products: DataFrameType):

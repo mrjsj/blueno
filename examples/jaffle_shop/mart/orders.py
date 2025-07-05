@@ -3,7 +3,7 @@ import polars as pl
 
 
 @Blueprint.register(
-    table_uri="lakehouse/mart/orders",
+    table_uri="jaffle_shop/mart/orders",
     format="delta"
 )
 def mart_orders(
