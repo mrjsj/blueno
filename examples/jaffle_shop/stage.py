@@ -2,7 +2,7 @@ from blueno import Blueprint, blueprint, DataFrameType
 import polars as pl
 
 
-@blueprint(
+@Blueprint.register(
     format="dataframe"
 )
 def stage_customers(raw_customers: DataFrameType) -> DataFrameType:
@@ -17,7 +17,7 @@ def stage_customers(raw_customers: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     format="dataframe",
     schema=pl.Schema(
         {
@@ -42,7 +42,7 @@ def stage_locations(raw_stores: DataFrameType) -> DataFrameType:
 
     return df
 
-@blueprint(
+@Blueprint.register(
     format="dataframe",
 )
 def stage_order_items(raw_order_items: DataFrameType) -> DataFrameType:
@@ -61,7 +61,7 @@ def stage_order_items(raw_order_items: DataFrameType) -> DataFrameType:
 def cents_to_dollars(expr: pl.Expr) -> pl.Expr:
     return expr.truediv(100)
 
-@blueprint(
+@Blueprint.register(
     format="dataframe",
 )
 def stage_orders(raw_orders: DataFrameType) -> DataFrameType:
@@ -90,7 +90,7 @@ def stage_orders(raw_orders: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     format="dataframe",
 )
 def stage_products(raw_products: DataFrameType) -> DataFrameType:
@@ -118,7 +118,7 @@ def stage_products(raw_products: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     format="dataframe",
 )
 def stage_supplies(raw_supplies: DataFrameType) -> DataFrameType:

@@ -4,7 +4,7 @@ import polars as pl
 contoso_source_base_uri = "data_generator/out/"
 lakehouse_base_uri = "contoso/landing/"
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "currency_exchange",
     format="delta",
     primary_keys=["Date", "FromCurrency", "ToCurrency"],
@@ -16,7 +16,7 @@ def landing_currency_exchange() -> DataFrameType:
 
     return pl.scan_csv(file_path)
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "customer",
     format="delta",
     primary_keys=["CustomerKey"],
@@ -31,7 +31,7 @@ def landing_customer() -> DataFrameType:
         schema_overrides={"ZipCode": pl.String}
     )
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "date",
     format="delta",
     primary_keys=["DateKey"],
@@ -44,7 +44,7 @@ def landing_date() -> DataFrameType:
     return pl.scan_csv(file_path)
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "orderrows",
     format="delta",
     primary_keys=["OrderKey", "LineNumber"],
@@ -57,7 +57,7 @@ def landing_orderrows() -> DataFrameType:
     return pl.scan_csv(file_path)
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "orders",
     format="delta",
     primary_keys=["OrderKey"],
@@ -70,7 +70,7 @@ def landing_orders() -> DataFrameType:
     return pl.scan_csv(file_path)
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "product",
     format="delta",
     primary_keys=["ProductKey"],
@@ -83,7 +83,7 @@ def landing_product() -> DataFrameType:
     return pl.scan_csv(file_path)
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "sales",
     format="delta",
     primary_keys=["OrderKey", "LineNumber"],
@@ -105,7 +105,7 @@ def landing_sales(self: Blueprint) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=lakehouse_base_uri + "store",
     format="delta",
     primary_keys=["StoreKey"],

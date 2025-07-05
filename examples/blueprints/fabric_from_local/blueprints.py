@@ -4,7 +4,7 @@ from blueno import Blueprint, DataFrameType, blueprint
 from . import config
 
 
-@blueprint(table_uri=f"{config.storage_base_path}/bronze/products")
+@Blueprint.register(table_uri=f"{config.storage_base_path}/bronze/products")
 def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -17,7 +17,7 @@ def bronze_products() -> DataFrameType:
     return df
 
 
-@blueprint(table_uri=f"{config.storage_base_path}/bronze/customers")
+@Blueprint.register(table_uri=f"{config.storage_base_path}/bronze/customers")
 def bronze_customers() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -29,7 +29,7 @@ def bronze_customers() -> DataFrameType:
     return df
 
 
-@blueprint(table_uri=f"{config.storage_base_path}/bronze/transactions")
+@Blueprint.register(table_uri=f"{config.storage_base_path}/bronze/transactions")
 def bronze_transactions() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -43,7 +43,7 @@ def bronze_transactions() -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{config.storage_base_path}/silver/products",
     primary_keys=["product_id"],
 )
@@ -53,7 +53,7 @@ def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFram
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{config.storage_base_path}/silver/customers",
     primary_keys=["customer_id"],
 )
@@ -63,7 +63,7 @@ def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFr
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{config.storage_base_path}/silver/transactions",
     primary_keys=["product_id"],
 )
@@ -73,7 +73,7 @@ def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri=f"{config.storage_base_path}/gold/sales_metrics",
     write_mode="incremental",
     incremental_column="transaction_date",

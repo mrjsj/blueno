@@ -3,7 +3,7 @@ import polars as pl
 from datetime import date
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/mart/calendar",
     format="delta"
 )

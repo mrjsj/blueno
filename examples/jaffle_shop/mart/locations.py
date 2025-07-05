@@ -1,7 +1,7 @@
 from blueno import Blueprint, blueprint, DataFrameType
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/mart/locations",
     format="delta"
 )

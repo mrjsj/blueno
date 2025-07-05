@@ -8,7 +8,7 @@ from blueno import Blueprint, DataFrameType, blueprint
 RAND_SIZE = 10
 
 
-@blueprint(table_uri="lakehouse/bronze/products")
+@Blueprint.register(table_uri="lakehouse/bronze/products")
 def bronze_products() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -23,7 +23,7 @@ def bronze_products() -> DataFrameType:
     return df
 
 
-@blueprint(table_uri="lakehouse/bronze/customers")
+@Blueprint.register(table_uri="lakehouse/bronze/customers")
 def bronze_customers() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -36,7 +36,7 @@ def bronze_customers() -> DataFrameType:
     return df
 
 
-@blueprint(table_uri="lakehouse/bronze/transactions")
+@Blueprint.register(table_uri="lakehouse/bronze/transactions")
 def bronze_transactions() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -51,7 +51,7 @@ def bronze_transactions() -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/products",
     primary_keys=["product_id"],
 )
@@ -62,7 +62,7 @@ def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFram
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/customers",
     primary_keys=["customer_id"],
 )
@@ -73,7 +73,7 @@ def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFr
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/silver/transactions",
     primary_keys=["product_id"],
 )
@@ -84,7 +84,7 @@ def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
     return df
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/gold/sales_metrics",
     write_mode="incremental",
     incremental_column="transaction_date",

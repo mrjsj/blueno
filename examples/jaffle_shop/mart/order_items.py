@@ -2,7 +2,7 @@ from blueno import Blueprint, blueprint, DataFrameType
 import polars as pl
 import polars.selectors as cs
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/mart/order_items",
     format="delta"
 )

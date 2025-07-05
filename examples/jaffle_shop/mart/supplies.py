@@ -3,7 +3,7 @@ import polars as pl
 import polars.selectors as cs
 
 
-@blueprint(
+@Blueprint.register(
     table_uri="lakehouse/mart/supplies",
     format="delta"
 )
