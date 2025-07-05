@@ -69,6 +69,7 @@ class Blueprint(BaseJob):
         priority: int = 100,
         max_concurrency: Optional[int] = None,
         freshness: Optional[timedelta] = None,
+        **kwargs,
     ):
         """Create a decorator for the Blueprint.
 
@@ -134,6 +135,7 @@ class Blueprint(BaseJob):
                 max_concurrency=max_concurrency,
                 freshness=freshness,
                 _fn=func,
+                **kwargs,
             )
             blueprint._register(job_registry)
             return blueprint
