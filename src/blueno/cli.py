@@ -5,6 +5,7 @@ from cyclopts import App, Group, Parameter
 
 from blueno import create_pipeline, job_registry
 from blueno.display import _task_display
+from blueno.exceptions import BluenoUserError
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,35 @@ def run(
     else:
         pipeline.run(concurrency=concurrency)
 
+@app.command
+def preview(
+    project_dir: str,
+    transformation_name: str,
+    help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
+    log_level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR"],
+        Parameter(group=global_args, help="Log level to use"),
+    ] = "INFO",
+):
+    """Previews a transformation.
+
+    Args:
+        project_dir: Path to the blueprints
+        transformation_name: The name of the transformation to preview
+        help: Show this help and exit
+        log_level: Log level to use
+
+    """
+    _setup_logging(log_level, display_mode=None)
+    _prepare_blueprints(project_dir)
+    
+    blueprint = job_registry.jobs.get(transformation_name)
+    if not blueprint:
+        msg = "Transformation '%s' not found in the project directory '%s'." % (transformation_name, project_dir)
+        logger.error(msg)
+        raise BluenoUserError(msg)
+
+    blueprint.preview()
 
 @app.command
 def run_remote(

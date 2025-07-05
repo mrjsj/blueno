@@ -51,6 +51,7 @@ class Blueprint(BaseJob):
 
     _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
+    _preview: bool = False
 
     @classmethod
     def register(
@@ -426,6 +427,11 @@ class Blueprint(BaseJob):
         if self._dataframe is not None:
             logger.debug("reading %s %s from %s", self.type, self.name, "dataframe")
             return self._dataframe
+        
+        if self._preview:
+            logger.debug("reading %s %s from preview", self.type, self.name)
+            self.preview(show_preview=False)
+            return self._dataframe
 
         if self.table_uri is not None and self.format != "dataframe":
             logger.debug("reading %s %s from %s", self.type, self.name, self.table_uri)
@@ -470,6 +476,12 @@ class Blueprint(BaseJob):
     @track_step
     def read_sources(self):
         """Reads from sources."""
+        if self._preview:
+            logger.debug("reading sources for preview of %s %s", self.type, self.name)
+            for input in self.depends_on:
+                if hasattr(input, "preview"):
+                    input.preview(show_preview=False)
+                
         self._inputs = [
             input.read() if hasattr(input, "read") else input for input in self.depends_on
         ]
@@ -539,7 +551,12 @@ class Blueprint(BaseJob):
         else:
             schema_frame = pl.DataFrame(schema=self.schema)
 
-        assert_frame_equal(self._dataframe.limit(0), schema_frame, check_column_order=False)
+        try: 
+            assert_frame_equal(self._dataframe.limit(0), schema_frame, check_column_order=False)
+        except AssertionError as e:
+            msg = f"Schema validation failed for {self.type} {self.name}: {str(e)}"
+            logger.error(msg)
+            raise BluenoUserError(msg)
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
 
@@ -556,3 +573,20 @@ class Blueprint(BaseJob):
         self.post_transform()
         self.validate_schema()
         self.write()
+
+    @track_step
+    def preview(self, show_preview: bool = True):
+        """Previews the job."""
+        self._preview = True
+        self.read_sources()
+        self.transform()
+        self.post_transform()
+
+        if hasattr(self._dataframe, "pl"):
+            self._dataframe = self._dataframe.pl().lazy()
+
+        if show_preview:
+            if isinstance(self._dataframe, pl.LazyFrame):
+                self._dataframe = self._dataframe.collect()
+
+            print(self._dataframe)
