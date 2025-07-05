@@ -18,6 +18,7 @@ blueno is a powerful yet easy-to-use Python library that helps you build and run
 ### Inspired By The Best
 
 Our blueprint system is inspired by great tools like:
+
 - dbt [models](https://docs.getdbt.com/docs/build/models)
 - SQLMesh [models](https://sqlmesh.readthedocs.io/en/stable/concepts/models/sql_models/)
 - Dagster's [software defined assets](https://dagster.io/glossary/software-defined-assets)

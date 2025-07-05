@@ -255,10 +255,12 @@ print(df)
 Sometimes, the built-in write methods or post-processing steps in `Blueprint` might not be enough for your needs. In these cases, you can create your own class that inherits from `Blueprint` and override specific methods or properties.
 
 For example, let’s say you want to:
+
 - Add a post-processing step that extracts the date from a timestamp column.
 - Add a custom write method that overwrites only specific partitions in your table.
 
 To do this, you’ll need to override the following properties or methods:
+
 - `_extend_post_transforms` to add your custom post-processing.
 - `_extend_write_modes` to add your custom write method.
 - Optionally, `_extend_input_validations` to add extra input checks.
@@ -364,5 +366,4 @@ class CustomBlueprint(Blueprint):
 
 ---
 
-For a complete, working example, see the:
-https://github.com/mrjsj/blueno/blob/main/tests/blueprints/test_custom_blueprint.py
+For a complete, working example, see: [test_custom_blueprint](https://github.com/mrjsj/blueno/blob/main/tests/blueprints/test_custom_blueprint.py)
