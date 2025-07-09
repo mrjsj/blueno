@@ -55,6 +55,13 @@ def upsert(
     if predicate_exclusion_columns is None:
         predicate_exclusion_columns = []
 
+    if isinstance(table_or_uri, str):
+        dt = get_or_create_delta_table(table_or_uri, df.schema)
+    else:
+        dt = table_or_uri
+
+    target_columns = [field.name for field in dt.schema().fields]
+
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
 
@@ -63,8 +70,10 @@ def upsert(
     predicate_update_columns = [
         column
         for column in df.columns
-        if column not in key_columns + predicate_exclusion_columns + update_exclusion_columns
+        if (column not in key_columns + predicate_exclusion_columns + update_exclusion_columns)
+        #and column in target_columns
     ]
+
     when_matched_update_predicates = build_when_matched_update_predicate(predicate_update_columns)
 
     update_columns = [
@@ -89,16 +98,12 @@ def upsert(
         )
         raise GenericBluenoError(msg % duplicates)
 
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
-    else:
-        dt = table_or_uri
-
     table_merger = (
         dt.merge(
             df,
             source_alias="source",
             target_alias="target",
+            merge_schema=True,
             predicate=merge_predicate,
         )
         .when_matched_update(
