@@ -40,7 +40,10 @@ def build_merge_predicate(
 
 
 def build_when_matched_update_predicate(
-    columns: list[str], source_alias: str = "source", target_alias: str = "target"
+    existing_columns: list[str],
+    new_columns: list[str] | None = None,
+    source_alias: str = "source",
+    target_alias: str = "target",
 ) -> str:
     """Constructs a SQL predicate for when matched update conditions.
 
@@ -48,7 +51,8 @@ def build_when_matched_update_predicate(
     records when a match is found based on the specified columns.
 
     Args:
-        columns: A list of column names to be used in the update predicate.
+        existing_columns: A list of column names to be used in the update predicate. These columns must existing both source and target dataframe.
+        new_columns: A list of columns only existing in the source.
         source_alias: An alias for the source
         target_alias: An alias for the target
 
@@ -78,9 +82,23 @@ def build_when_matched_update_predicate(
                 OR ({target_alias}.{quote_identifier(column)} IS NOT NULL AND {source_alias}.{quote_identifier(column)} IS NULL)
             )
         """
-        for column in columns
+        for column in existing_columns
     ]
-    return " OR ".join(when_matched_update_predicates)
+
+    when_matched_update_predicate = " OR ".join(when_matched_update_predicates)
+
+    if new_columns:
+        when_matched_update_predicate += " OR "
+        when_matched_update_predicate += " OR ".join(
+            [
+                f"""
+                    ({source_alias}.{quote_identifier(column)} IS NOT NULL)
+                """
+                for column in new_columns
+            ]
+        )
+
+    return when_matched_update_predicate
 
 
 def build_when_matched_update_columns(

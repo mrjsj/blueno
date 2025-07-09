@@ -71,10 +71,14 @@ def upsert(
         column
         for column in df.columns
         if (column not in key_columns + predicate_exclusion_columns + update_exclusion_columns)
-        #and column in target_columns
+        and column in target_columns
     ]
 
-    when_matched_update_predicates = build_when_matched_update_predicate(predicate_update_columns)
+    new_columns = [column for column in df.columns if column not in target_columns]
+
+    when_matched_update_predicates = build_when_matched_update_predicate(
+        predicate_update_columns, new_columns
+    )
 
     update_columns = [
         column for column in df.columns if column not in key_columns + update_exclusion_columns
