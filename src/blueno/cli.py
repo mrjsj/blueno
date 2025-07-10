@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Dict, List, Literal, Optional
 
 from cyclopts import App, Group, Parameter
 
@@ -8,6 +8,8 @@ from blueno.display import _task_display
 from blueno.exceptions import BluenoUserError
 
 logger = logging.getLogger(__name__)
+
+
 
 
 class _CustomFormatter(logging.Formatter):
@@ -62,6 +64,7 @@ def _prepare_blueprints(project_dir: str) -> None:
 def run(
     project_dir: str,
     select: Annotated[Optional[list[str]], Parameter(consume_multiple=True)] = None,
+    select_tags: Annotated[Optional[list[str]], Parameter(consume_multiple=True)] = None,    
     display_mode: Annotated[
         Literal["live", "log", "none"],
         Parameter(help="Show live updates, log output, or no output"),
@@ -80,12 +83,11 @@ def run(
         project_dir: Path to the blueprints
         concurrency: Number of concurrent tasks to run
         select: List of blueprints to run. If not provided, all blueprints will be run
+        select_tags: List of tags to filter on. Should be in the format: `mytag=value`. Same name tags will be treated as OR, and different named tags will be treated as AND. I.e. "color=blue color=red shape=circle" filters on "(color=blue OR color=red) AND shape=circle".
         show_dag: Whether to show the DAG of the blueprints
         display_mode: Show live updates, log output, or no output
         help: Show this help and exit
         log_level: Log level to use
-
-
     """
     _setup_logging(log_level, display_mode)
     _prepare_blueprints(project_dir)
@@ -95,7 +97,16 @@ def run(
 
     blueprints = list(job_registry.jobs.values())
 
-    pipeline = create_pipeline(blueprints, subset=select)
+    tag_filters: Dict[str, List[str]] = {}
+    for tag in select_tags:
+        key, val = tag.split('=', 1)
+        if key in tag_filters:
+            tag_filters[key].append(val.split())    
+        else:
+            tag_filters[key] = [val.strip()]
+
+    print(tag_filters)
+    pipeline = create_pipeline(blueprints, name_filters=select, tag_filters=tag_filters)
 
     if display_mode == "live":
         with _task_display(pipeline, 10):

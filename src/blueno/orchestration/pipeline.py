@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from fnmatch import fnmatch
 from functools import lru_cache
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from blueno.exceptions import BluenoUserError
 from blueno.orchestration.job import BaseJob
@@ -242,15 +242,20 @@ class Pipeline:
                 executor.shutdown(wait=False, cancel_futures=True)
 
 
-def create_pipeline(jobs: list[BaseJob], subset: Optional[List[str]] = None) -> Pipeline:
+def create_pipeline(
+    jobs: list[BaseJob],
+    name_filters: Optional[List[str]] = None,
+    tag_filters: Dict[str, List[str]] = None,
+) -> Pipeline:
     """Creates a pipeline and resolved dependencies given list of Jobs, and optionally a subset of jobs name.
 
     Args:
         jobs: A list of jobs
-        subset: A selector-style list of job names. Can be prefixed or suffixed with + to include downstream and/or upstream jobs.
+        name_filters: A selector-style list of job names. Can be prefixed or suffixed with + to include downstream and/or upstream jobs.
             The number of +'s will denote the number of levels to include.
             I.e. +silver_product will select the silver_product job and its direct upstream dependencies (parents).
             ++silver_product will select the silver_product job and two generates of upstream dependencies (parents + grandparents).
+        tag_filters: A tag style filter. Only jobs tagged with the key-value pair provided will be included.
 
     Returns:
         A pipeline of activities with resolved dependencies.
@@ -293,7 +298,9 @@ def create_pipeline(jobs: list[BaseJob], subset: Optional[List[str]] = None) -> 
 
     cycle = find_circular_dependencies(jobs)
     if cycle:
-        raise BluenoUserError(f"Cycle detected in job dependencies: {' -> '.join(reversed(cycle))}")
+        msg = "Cycle detected in job dependencies %s"
+        logger.error(msg % ' -> '.join(reversed(cycle)))
+        raise BluenoUserError("Cycle detected in job dependencies:", ' -> '.join(reversed(cycle)))
 
     # Step 2: Link dependencies
     name_to_activity = {activity.job.name: activity for activity in pipeline.activities}
@@ -324,68 +331,89 @@ def create_pipeline(jobs: list[BaseJob], subset: Optional[List[str]] = None) -> 
         ),
     )
 
-    if not subset:
-        logger.debug("No subset")
-        return pipeline
+    if name_filters:
+        # Step 3: Build dependency maps
+        def get_ancestors(activity_name: str, level: Optional[int] = None) -> set:
+            visited, frontier = set(), {activity_name}
+            depth = 0
+            while frontier and (level is None or depth < level):
+                next_frontier = set()
+                for name in frontier:
+                    for dep in name_to_activity[name].job.depends_on:
+                        if dep.name not in visited:
+                            next_frontier.add(dep.name)
+                visited.update(next_frontier)
+                frontier = next_frontier
+                depth += 1
+            return visited
 
-    # Step 3: Build dependency maps
-    def get_ancestors(activity_name: str, level: Optional[int] = None) -> set:
-        visited, frontier = set(), {activity_name}
-        depth = 0
-        while frontier and (level is None or depth < level):
-            next_frontier = set()
-            for name in frontier:
-                for dep in name_to_activity[name].job.depends_on:
-                    if dep.name not in visited:
-                        next_frontier.add(dep.name)
-            visited.update(next_frontier)
-            frontier = next_frontier
-            depth += 1
-        return visited
+        def get_descendants(activity_name: str, level: Optional[int] = None) -> set:
+            visited, frontier = set(), {activity_name}
+            depth = 0
+            while frontier and (level is None or depth < level):
+                next_frontier = set()
+                for name in frontier:
+                    for dep_name in name_to_activity[name].dependents:
+                        if dep_name not in visited:
+                            next_frontier.add(dep_name)
+                visited.update(next_frontier)
+                frontier = next_frontier
+                depth += 1
+            return visited
 
-    def get_descendants(activity_name: str, level: Optional[int] = None) -> set:
-        visited, frontier = set(), {activity_name}
-        depth = 0
-        while frontier and (level is None or depth < level):
-            next_frontier = set()
-            for name in frontier:
-                for dep_name in name_to_activity[name].dependents:
-                    if dep_name not in visited:
-                        next_frontier.add(dep_name)
-            visited.update(next_frontier)
-            frontier = next_frontier
-            depth += 1
-        return visited
+        selected = set()
+        import re
 
-    selected = set()
-    import re
+        for item in name_filters:
+            # Parse modifiers (e.g. +silver, silver++, etc.)
+            prefix = re.match(r"^(\+*)", item).group(0)  # ty: ignore[possibly-unbound-attribute]
+            suffix = re.match(r"^(\+*)", item[::-1]).group(0)  # ty: ignore[possibly-unbound-attribute]
+            core = item.strip("+")
 
-    for item in subset:
-        # Parse modifiers (e.g. +silver, silver++, etc.)
-        prefix = re.match(r"^(\+*)", item).group(0)  # ty: ignore[possibly-unbound-attribute]
-        suffix = re.match(r"^(\+*)", item[::-1]).group(0)  # ty: ignore[possibly-unbound-attribute]
-        core = item.strip("+")
+            # Handle wildcards by finding all matching jobs
+            matching_jobs = set()
+            if "*" in core:
+                matching_jobs = {name for name in name_to_activity.keys() if fnmatch(name, core)}
+            else:
+                if core in name_to_activity:
+                    matching_jobs = {core}
 
-        # Handle wildcards by finding all matching jobs
-        matching_jobs = set()
-        if "*" in core:
-            matching_jobs = {name for name in name_to_activity.keys() if fnmatch(name, core)}
-        else:
-            if core in name_to_activity:
-                matching_jobs = {core}
+            # Process each matching job with its modifiers
+            for job_name in matching_jobs:
+                selected.add(job_name)
+                if "+" in prefix:
+                    selected.update(get_ancestors(job_name, level=len(prefix)))
+                if "+" in suffix:
+                    selected.update(get_descendants(job_name, level=len(suffix)))
 
-        # Process each matching job with its modifiers
-        for job_name in matching_jobs:
-            selected.add(job_name)
-            if "+" in prefix:
-                selected.update(get_ancestors(job_name, level=len(prefix)))
-            if "+" in suffix:
-                selected.update(get_descendants(job_name, level=len(suffix)))
+        # Step 4: Filter activities
+        for activity in pipeline.activities:
+            if activity.job.name not in selected:
+                logger.debug(
+                    "activity %s was skipped as it did not match any of the name filters %s",
+                    activity.job.name,
+                    name_filters,
+                )
+                activity.status = ActivityStatus.SKIPPED
+                continue
 
-    # Step 4: Filter activities
+    if tag_filters:
+        for activity in pipeline.activities:
+            if activity.status == ActivityStatus.SKIPPED:
+                logger.debug(
+                    "skipping tag filter check for activity %s as it was already skipped due to another filter",
+                    activity.job.name,
+                )
+                continue
 
-    for activity in pipeline.activities:
-        if activity.job.name not in selected:
-            activity.status = ActivityStatus.SKIPPED
+            for tag, allowed_values in tag_filters.items():
+                if activity.job.tags.get(tag) not in allowed_values:
+                    logger.debug(
+                        "activity %s was skipped as it did not match the tag filters %s",
+                        activity.job.name,
+                        tag_filters,
+                    )
+                    activity.status = ActivityStatus.SKIPPED
+                    break
 
     return pipeline

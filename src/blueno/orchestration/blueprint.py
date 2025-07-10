@@ -65,6 +65,7 @@ class Blueprint(BaseJob):
         scd2_column: Optional[str] = None,
         write_mode: str = "overwrite",
         format: str = "dataframe",
+        tags: Optional[Dict[str, str]] = None,
         post_transforms: Optional[List[str]] = None,
         deduplication_order_columns: Optional[List[str]] = None,
         priority: int = 100,
@@ -89,6 +90,7 @@ class Blueprint(BaseJob):
             write_mode: The write method to use. Defaults to `overwrite`.
                 Options are: `append`, `overwrite`, `upsert`, `incremental`, `replace_range`, and `scd2_by_column`.
             format: The format to use. Defaults to `delta`. Options are: `delta`, `parquet`, and `dataframe`. If `dataframe` is used, the blueprint will be stored in memory and not written to a target table.
+            tags: A dictionary of tags to apply to the blueprint. This can be used to group related blueprints by tag, and can be used to run a subset of blueprints based on tags.
             post_transforms: Optional list of post-transformation functions to apply after the main transformation. Options are: `deduplicate`, `add_audit_columns`, `add_identity_column`.
                 These functions will be applied in the order they are provided.
             deduplication_order_columns: Optional list of columns to use for deduplication when `post_transforms` includes `deduplicate`.
@@ -131,6 +133,7 @@ class Blueprint(BaseJob):
                 scd2_column=scd2_column,
                 write_mode=write_mode,
                 format=format,
+                tags=tags or {},
                 post_transforms=post_transforms or [],
                 deduplication_order_columns=deduplication_order_columns or [],
                 priority=priority,
@@ -200,6 +203,10 @@ class Blueprint(BaseJob):
                 any(transform not in self._post_transforms for transform in self.post_transforms),
                 f"post_transforms must exist in {list(self._post_transforms.keys())} - got {self.post_transforms}",
             ),
+            (
+                not isinstance(self.tags, Dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in self.tags.items()),
+                "tags must be a dictionary, and all keys and values must be of type `str`."
+            )            
         ]
 
         rules.extend(self._extend_input_validations)
