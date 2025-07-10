@@ -40,7 +40,7 @@ class Task(BaseJob):
 
         **Simple example**
 
-        Creates a task for the `notify_end`, which is depends on a gold blueprint.
+        Creates a task for the `notify_end_task`, which is depends on a gold blueprint.
         ```python
         from blueno import Blueprint, Task
         import logging
@@ -49,7 +49,7 @@ class Task(BaseJob):
 
 
         @Task.register()
-        def notify_end(gold_metrics: Blueprint) -> None:
+        def notify_end_task(gold_metrics: Blueprint) -> None:
             logger.info("Gold metrics ran successfully")
 
             # Send message on Slack
