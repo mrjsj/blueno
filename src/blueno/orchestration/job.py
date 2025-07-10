@@ -8,7 +8,7 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from tempfile import TemporaryDirectory
-from typing import Callable, List, Optional
+from typing import Callable, Dict, List, Optional
 
 # from blueno.blueprints.blueprint import Blueprint
 from blueno.exceptions import DuplicateJobError, JobNotFoundError
@@ -42,6 +42,7 @@ class BaseJob(ABC):
 
     name: str
     priority: int
+    tags: Dict[str, str]
     max_concurrency: Optional[int] = None
     _current_step: Optional[str] = None
     _fn: Callable[..., DataFrameType]

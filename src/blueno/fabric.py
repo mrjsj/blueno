@@ -508,7 +508,7 @@ def run_multiple(
 
     jobs = list(job_registry.jobs.values())
 
-    pipeline = create_pipeline(jobs=jobs, subset=select)
+    pipeline = create_pipeline(jobs=jobs, name_filters=select)
 
     pipeline.activities
 
