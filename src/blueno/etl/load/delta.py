@@ -56,7 +56,8 @@ def upsert(
         predicate_exclusion_columns = []
 
     if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
+        schema = df.schema if isinstance(df, pl.DataFrame) else df.collect_schema()
+        dt = get_or_create_delta_table(table_or_uri, schema)
     else:
         dt = table_or_uri
 
