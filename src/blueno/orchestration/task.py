@@ -68,3 +68,8 @@ class Task(BaseJob):
             return task
 
         return decorator
+
+    @override
+    def free_memory(self):
+        """No op."""
+        pass
