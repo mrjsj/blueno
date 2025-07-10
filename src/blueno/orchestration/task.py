@@ -4,6 +4,8 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+from typing_extensions import override
+
 from blueno.orchestration.job import BaseJob, job_registry, track_step
 
 logger = logging.getLogger(__name__)
@@ -18,6 +20,7 @@ class Task(BaseJob):
         """Running the task."""
         self._fn(*self.depends_on)
 
+    @override
     @classmethod
     def register(
         cls,
@@ -35,22 +38,22 @@ class Task(BaseJob):
             tags: A dictionary of tags to apply to the blueprint. This can be used to group related jobs by tag, and can be used to run a subset of jobs based on tags.
             priority: Determines the execution order among activities ready to run. Higher values indicate higher scheduling preference, but dependencies and concurrency limits are still respected.
 
-        Example:
-            **Creates a task for the `notify_end`, which is depends on a gold blueprint.**
+        **Simple example**
 
-            ```python
-            from blueno import Blueprint, Task
-            import logging
+        Creates a task for the `notify_end`, which is depends on a gold blueprint.
+        ```python
+        from blueno import Blueprint, Task
+        import logging
 
-            logger = logging.getLogger(__name__)
+        logger = logging.getLogger(__name__)
 
 
-            @Task.register()
-            def notify_end(gold_metrics: Blueprint) -> None:
-                logger.info("Gold metrics ran successfully")
+        @Task.register()
+        def notify_end(gold_metrics: Blueprint) -> None:
+            logger.info("Gold metrics ran successfully")
 
-                # Send message on Slack
-            ```
+            # Send message on Slack
+        ```
         """
 
         def decorator(func):

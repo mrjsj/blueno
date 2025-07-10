@@ -9,6 +9,7 @@ from typing import Callable, Dict, List, Optional
 
 import polars as pl
 from polars.testing import assert_frame_equal
+from typing_extensions import override
 
 from blueno.etl import (
     append,
@@ -53,6 +54,7 @@ class Blueprint(BaseJob):
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
     _preview: bool = False
 
+    @override
     @classmethod
     def register(
         cls,
@@ -104,22 +106,63 @@ class Blueprint(BaseJob):
                 If set, the blueprint will only be processed if the delta table's last modification time is older than the freshness threshold.
             **kwargs: Additional keyword arguments to pass to the blueprint. This is used when extending the blueprint with custom attributes or methods.
 
-        Example:
-            ```python
-            from blueno import Blueprint, DataFrameType
+        **Simple example**
+        ```python
+        from blueno import Blueprint, DataFrameType
+
+        @Blueprint.register(
+            table_uri="/path/to/stage/customer",
+            primary_keys=["customer_id"],
+
+            write_mode="overwrite",
+        )
+        def stage_customer(self: Blueprint, bronze_customer: DataFrameType) -> DataFrameType:
+            # Deduplicate customers
+            df = bronze_customer.unique(subset=self.primary_keys)
+
+            return df
+        ```
+
+        **Full example**
+        ```python
+        from blueno import Blueprint, DataFrameType
+        from datetime import timedelta
 
 
-            @Blueprint.register(
-                table_uri="/path/to/stage/customer",
-                primary_keys=["customer_id"],
-                write_mode="overwrite",
+        @Blueprint.register(
+            name="gold_customer",
+            table_uri="/path/to/gold/customer",
+            primary_keys=["customer_id", "site_id"],
+            partition_by=["year","month","day"],
+            incremental_column="order_timestamp",
+            scd2_column="modified_timestamp",
+            write_mode="scd2_by_column",
+            format="delta",
+            tags={
+                "owner": "Alice Wonderlands",
+                "project": "customer_360",
+                "pii": "true",
+                "business_unit": "finance",
+            },
+            post_transforms=[
+                "deduplicate",
+                "add_audit_columns",
+            ],
+            deduplication_order_columns=["modified_timestamp"],
+            priority=110,
+            max_concurrency=2,
+            freshness=timedelta(hours=1),
+        )
+        def gold_customer(self: Blueprint, silver_customer: DataFrameType) -> DataFrameType:
+            
+            # Some advanced business logic
+            df = silver_customer.with_columns(
+                ...
             )
-            def stage_customer(self: Blueprint, bronze_customer: DataFrameType) -> DataFrameType:
-                # Deduplicate customers
-                df = bronze_customers.unique(subset=self.primary_keys)
 
-                return df
-            ```
+            return df
+        ```
+
         """
 
         def decorator(func):
@@ -567,11 +610,13 @@ class Blueprint(BaseJob):
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
 
+    @override
     @track_step
     def free_memory(self):
         """Clears the collected dataframe to free memory."""
         self._dataframe = None
 
+    @override
     @track_step
     def run(self):
         """Runs the job."""

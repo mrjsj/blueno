@@ -119,6 +119,7 @@ class BaseJob(ABC):
         """
         pass
 
+    @abstractmethod
     def free_memory(self) -> None:
         """Method to free up memory, e.g. deleting dataframe.
 
