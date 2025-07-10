@@ -98,7 +98,7 @@ def run(
     blueprints = list(job_registry.jobs.values())
 
     tag_filters: Dict[str, List[str]] = {}
-    for tag in select_tags:
+    for tag in select_tags or []:
         key, val = tag.split('=', 1)
         if key in tag_filters:
             tag_filters[key].append(val.split())    

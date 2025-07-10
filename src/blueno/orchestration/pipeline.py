@@ -245,7 +245,7 @@ class Pipeline:
 def create_pipeline(
     jobs: list[BaseJob],
     name_filters: Optional[List[str]] = None,
-    tag_filters: Dict[str, List[str]] = None,
+    tag_filters: Optional[Dict[str, List[str]]] = None,
 ) -> Pipeline:
     """Creates a pipeline and resolved dependencies given list of Jobs, and optionally a subset of jobs name.
 
@@ -407,7 +407,8 @@ def create_pipeline(
                 continue
 
             for tag, allowed_values in tag_filters.items():
-                if activity.job.tags.get(tag) not in allowed_values:
+                tag_value = activity.job.tags.get(tag)
+                if tag_value is None or tag_value not in allowed_values:
                     logger.debug(
                         "activity %s was skipped as it did not match the tag filters %s",
                         activity.job.name,

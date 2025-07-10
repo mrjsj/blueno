@@ -42,7 +42,7 @@ class BaseJob(ABC):
 
     name: str
     priority: int
-    tags: Optional[Dict[str, str]] = None
+    tags: Dict[str, str]
     max_concurrency: Optional[int] = None
     _current_step: Optional[str] = None
     _fn: Callable[..., DataFrameType]
