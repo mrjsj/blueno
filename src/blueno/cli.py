@@ -105,7 +105,6 @@ def run(
         else:
             tag_filters[key] = [val.strip()]
 
-    print(tag_filters)
     pipeline = create_pipeline(blueprints, name_filters=select, tag_filters=tag_filters)
 
     if display_mode == "live":
