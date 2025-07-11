@@ -118,7 +118,7 @@ def run(
 def preview(
     project_dir: str,
     transformation_name: str,
-    limit: int = 100,
+    limit: int = 10,
     help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
     log_level: Annotated[
         Literal["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -147,7 +147,10 @@ def preview(
         logger.error(msg)
         raise BluenoUserError(msg)
 
-    blueprint.preview(limit=limit)
+    blueprint.preview(
+        show_preview=True,
+        limit=limit,
+    )
 
 
 @app.command

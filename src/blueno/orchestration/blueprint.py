@@ -629,6 +629,7 @@ class Blueprint(BaseJob):
     @track_step
     def preview(self, show_preview: bool = True, limit: int = 10):
         """Previews the job."""
+        logger.debug("preview %s rows", limit if limit >= 0 else "all")
         self._preview = True
         self.read_sources()
         self.transform()
