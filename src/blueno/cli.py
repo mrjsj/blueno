@@ -130,7 +130,7 @@ def preview(
     Args:
         project_dir: Path to the blueprints
         transformation_name: The name of the transformation to preview
-        limit: The number of rows to limit the output by
+        limit: The number of rows to limit the output by. Using -1 will remove the limit.
         help: Show this help and exit
         log_level: Log level to use
 
