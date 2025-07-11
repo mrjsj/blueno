@@ -110,10 +110,10 @@ class Blueprint(BaseJob):
         ```python
         from blueno import Blueprint, DataFrameType
 
+
         @Blueprint.register(
             table_uri="/path/to/stage/customer",
             primary_keys=["customer_id"],
-
             write_mode="overwrite",
         )
         def stage_customer(self: Blueprint, bronze_customer: DataFrameType) -> DataFrameType:
@@ -133,7 +133,7 @@ class Blueprint(BaseJob):
             name="gold_customer",
             table_uri="/path/to/gold/customer",
             primary_keys=["customer_id", "site_id"],
-            partition_by=["year","month","day"],
+            partition_by=["year", "month", "day"],
             incremental_column="order_timestamp",
             scd2_column="modified_timestamp",
             write_mode="scd2_by_column",
@@ -154,11 +154,8 @@ class Blueprint(BaseJob):
             freshness=timedelta(hours=1),
         )
         def gold_customer(self: Blueprint, silver_customer: DataFrameType) -> DataFrameType:
-            
             # Some advanced business logic
-            df = silver_customer.with_columns(
-                ...
-            )
+            df = silver_customer.with_columns(...)
 
             return df
         ```
@@ -247,9 +244,10 @@ class Blueprint(BaseJob):
                 f"post_transforms must exist in {list(self._post_transforms.keys())} - got {self.post_transforms}",
             ),
             (
-                not isinstance(self.tags, Dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in self.tags.items()),
-                "tags must be a dictionary, and all keys and values must be of type `str`."
-            )            
+                not isinstance(self.tags, Dict)
+                or not all(isinstance(k, str) and isinstance(v, str) for k, v in self.tags.items()),
+                "tags must be a dictionary, and all keys and values must be of type `str`.",
+            ),
         ]
 
         rules.extend(self._extend_input_validations)
@@ -530,7 +528,7 @@ class Blueprint(BaseJob):
             logger.debug("reading sources for preview of %s %s", self.type, self.name)
             for input in self.depends_on:
                 if hasattr(input, "preview"):
-                    input.preview(show_preview=False)
+                    input.preview(show_preview=False, limit=-1)
 
         self._inputs = [
             input.read() if hasattr(input, "read") else input for input in self.depends_on
@@ -645,9 +643,8 @@ class Blueprint(BaseJob):
             if isinstance(self._dataframe, pl.LazyFrame):
                 self._dataframe = self._dataframe.collect()
 
-
             with pl.Config() as cfg:
                 cfg.set_tbl_cols(-1)
                 cfg.set_tbl_rows(-1)
-                
+
                 print(self._dataframe)
