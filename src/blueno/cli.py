@@ -118,6 +118,7 @@ def run(
 def preview(
     project_dir: str,
     transformation_name: str,
+    limit: int = 100,
     help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
     log_level: Annotated[
         Literal["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -129,6 +130,7 @@ def preview(
     Args:
         project_dir: Path to the blueprints
         transformation_name: The name of the transformation to preview
+        limit: The number of rows to limit the output by
         help: Show this help and exit
         log_level: Log level to use
 
@@ -145,7 +147,7 @@ def preview(
         logger.error(msg)
         raise BluenoUserError(msg)
 
-    blueprint.preview()
+    blueprint.preview(limit=limit)
 
 
 @app.command

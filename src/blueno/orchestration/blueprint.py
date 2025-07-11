@@ -627,17 +627,20 @@ class Blueprint(BaseJob):
         self.write()
 
     @track_step
-    def preview(self, show_preview: bool = True):
+    def preview(self, show_preview: bool = True, limit: int = 100):
         """Previews the job."""
         self._preview = True
         self.read_sources()
         self.transform()
         self.post_transform()
 
+        self._dataframe = self._dataframe.limit(limit)
+
         if hasattr(self._dataframe, "pl"):
             self._dataframe = self._dataframe.pl().lazy()
 
         if show_preview:
+            self._dataframe.limit(limit)
             if isinstance(self._dataframe, pl.LazyFrame):
                 self._dataframe = self._dataframe.collect()
 
