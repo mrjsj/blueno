@@ -68,6 +68,7 @@ class Pipeline:
     # _ready_activities: list[Activity] = field(default_factory=list)
     # _lock = threading.Lock()
     _running_activities: dict[Future[str], PipelineActivity] = field(default_factory=dict)
+    failed_jobs: dict[str, Exception] = field(default_factory=dict)
 
     def _have_all_dependents_completed(self, activity: PipelineActivity) -> bool:
         """Check if all dependents of an activity have completed."""
@@ -199,6 +200,7 @@ class Pipeline:
                 logger.debug("setting status for activity %s to FAILED", activity.job.name)
                 activity.status = ActivityStatus.FAILED
                 activity.duration = time.time() - activity.start
+                self.failed_jobs[activity.job.name] = e
                 logger.error("Error running blueprint %s: %s", activity.job.name, e)
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
