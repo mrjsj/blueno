@@ -44,6 +44,7 @@ class PipelineActivity:
     status: ActivityStatus = ActivityStatus.PENDING
     in_degrees: int = 0
     dependents: list[BaseJob] = field(default_factory=list)
+    exception: Optional[Exception] = None
 
     def __str__(self):
         """String representation."""
@@ -201,6 +202,7 @@ class Pipeline:
                 activity.status = ActivityStatus.FAILED
                 activity.duration = time.time() - activity.start
                 self.failed_jobs[activity.job.name] = e
+                activity.exception = e
                 logger.error("Error running blueprint %s: %s", activity.job.name, e)
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:

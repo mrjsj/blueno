@@ -36,6 +36,7 @@ def _render_table(activities: list[PipelineActivity]):
     # table.add_column("Step")
     table.add_column("Start Time")
     table.add_column("Duration")
+    table.add_column("Error")
 
     table.columns[2].min_width = 10
     table.columns[3].min_width = 30
@@ -45,6 +46,11 @@ def _render_table(activities: list[PipelineActivity]):
         duration = f"{activity.duration:.1f}s" if activity.duration else "-"
         start = time.strftime("%H:%M:%S", time.localtime(activity.start)) if activity.start else "-"
 
+        if activity.exception:
+            error = f"{type(activity.exception).__name__}: {str(activity.exception)}"
+        else:
+            error = "-"
+
         table.add_row(
             activity.job.name,
             activity.job.type,
@@ -52,6 +58,7 @@ def _render_table(activities: list[PipelineActivity]):
             # activity.job.current_step,
             start,
             duration,
+            error
         )
 
     panel = Panel(table, title="ETL DAG Status", border_style="blue")

@@ -114,10 +114,7 @@ def run(
         pipeline.run(concurrency=concurrency)
 
     if pipeline.failed_jobs:
-        
         import sys
-        for job, exception in pipeline.failed_jobs.items():
-            sys.stderr.write(f"{job} failed with error: {str(exception)}")
         sys.exit(1)
 
 
