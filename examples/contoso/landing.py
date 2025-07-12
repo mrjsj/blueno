@@ -1,7 +1,7 @@
 from blueno import DataFrameType, Blueprint
 import polars as pl
 
-contoso_source_base_uri = "data_generator/out/"
+contoso_source_base_uri = "examples/contoso/data/"
 lakehouse_base_uri = "contoso/landing/"
 
 @Blueprint.register(
