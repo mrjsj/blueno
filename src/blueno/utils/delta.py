@@ -54,9 +54,9 @@ def get_last_modified_time(table_uri: str) -> datetime:
         if not DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
             return datetime(1970, 1, 1)  # Return epoch time if table does not exist
 
-    # Tracked operations
-    operation = [
-        "CREATE OR REPLACE TABLEWRITE",
+    tracked_operations = [
+        "CREATE OR REPLACE TABLE",
+        "WRITE",
         "DELETE",
         "UPDATE",
         "MERGE",
@@ -65,7 +65,7 @@ def get_last_modified_time(table_uri: str) -> datetime:
 
     metadata = DeltaTable(table_uri, storage_options=storage_options).history(50)
     timestamp = next(
-        commit.get("timestamp") for commit in metadata if commit.get("operation") in operation
+        commit.get("timestamp") for commit in metadata if commit.get("operation") in tracked_operations
     )
 
     if timestamp is None:
