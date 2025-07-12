@@ -486,8 +486,8 @@ class Blueprint(BaseJob):
             return self.target_df
 
         msg = "%s %s is not materialized - most likely because it was never materialized, or it's an ephemeral format, i.e. 'dataframe'"
-        logger.error(msg, self.type, self.name, self.name)
-        raise BluenoUserError(msg % (self.type, self.name, self.name))
+        logger.error(msg, self.type, self.name)
+        raise BluenoUserError(msg % (self.type, self.name))
 
     @property
     def target_df(self) -> DataFrameType:
