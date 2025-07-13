@@ -190,15 +190,18 @@ class Pipeline:
 
         def run_activity(activity: PipelineActivity):
             logger.debug("setting status for activity %s to RUNNING", activity.job.name)
+            logger.info("starting activity %s", activity.job.name)
             activity.status = ActivityStatus.RUNNING
             activity.start = time.time()
             try:
                 activity.job.run()
                 logger.debug("setting status for activity %s to COMPLETED", activity.job.name)
+                logger.info("activity %s completed successfully", activity.job.name)
                 activity.status = ActivityStatus.COMPLETED
                 activity.duration = time.time() - activity.start
             except Exception as e:
                 logger.debug("setting status for activity %s to FAILED", activity.job.name)
+                logger.info("activity %s completed in failure", activity.job.name)
                 activity.status = ActivityStatus.FAILED
                 activity.duration = time.time() - activity.start
                 self.failed_jobs[activity.job.name] = e
