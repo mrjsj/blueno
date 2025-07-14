@@ -10,6 +10,7 @@ from blueno.etl import get_default_config
 from blueno.etl import (
     add_audit_columns,
     apply_scd_type_2,
+    apply_soft_delete_flag,
     deduplicate,
     normalize_column_names,
     reorder_columns_by_prefix,
@@ -564,3 +565,33 @@ def test_apply_scd_type_2_target_records_gets_updated():
     )
 
     assert_frame_equal(result_df, expected_df, check_row_order=False)
+
+
+
+def test_apply_soft_delete_flag():
+
+    source_df = pl.DataFrame(
+        {
+            "id": [3, 4],
+            "name": ["Bob", "Martin"],
+        },
+    )
+
+    target_df = pl.DataFrame(
+        {
+            "id": [1, 2, 3, 4],
+            "name": ["Alice", "Miranda", "Bob", "Martin"],
+        },
+    )
+
+    actual_df = apply_soft_delete_flag(source_df, target_df, ["id"], "is_deleted")
+
+    expected_df = pl.DataFrame(
+        {
+            "id": [1, 2, 3, 4],
+            "name": ["Alice", "Miranda", "Bob", "Martin"],
+            "is_deleted": [True, True, False, False],
+        },
+    )
+
+    assert_frame_equal(actual_df, expected_df, check_row_order=False)

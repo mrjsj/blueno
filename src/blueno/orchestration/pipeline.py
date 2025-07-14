@@ -10,8 +10,12 @@ from fnmatch import fnmatch
 from functools import lru_cache
 from typing import Dict, List, Optional
 
+import deltalake.exceptions
+
 from blueno.exceptions import BluenoUserError
 from blueno.orchestration.job import BaseJob
+import polars as pl
+import deltalake
 
 # class Trigger(Enum):
 #     ON_SUCCESS = "on_success"
@@ -199,7 +203,7 @@ class Pipeline:
                 logger.info("activity %s completed successfully", activity.job.name)
                 activity.status = ActivityStatus.COMPLETED
                 activity.duration = time.time() - activity.start
-            except Exception as e:
+            except (Exception, pl.exceptions.PolarsError, pl.exceptions.PanicException, deltalake.exceptions.DeltaError, RuntimeError, SystemError) as e:
                 logger.debug("setting status for activity %s to FAILED", activity.job.name)
                 logger.info("activity %s completed in failure", activity.job.name)
                 activity.status = ActivityStatus.FAILED
@@ -207,6 +211,17 @@ class Pipeline:
                 self.failed_jobs[activity.job.name] = e
                 activity.exception = e
                 logger.error("Error running blueprint %s: %s", activity.job.name, e)
+            finally:
+                if activity.status not in (ActivityStatus.COMPLETED, ActivityStatus.FAILED):
+                    activity.status = ActivityStatus.FAILED
+                    logger.debug("setting status for activity %s to FAILED", activity.job.name)
+                    logger.info("activity %s failed due to unknown error", activity.job.name)
+                    activity.duration = time.time() - activity.start
+                    exception = Exception("unknown error")
+                    self.failed_jobs[activity.job.name] = exception
+                    activity.exception = exception
+                    logger.error("Error running blueprint %s: %s", activity.job.name, e)
+
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             try:
@@ -306,8 +321,8 @@ def create_pipeline(
     cycle = find_circular_dependencies(jobs)
     if cycle:
         msg = "Cycle detected in job dependencies %s"
-        logger.error(msg % ' -> '.join(reversed(cycle)))
-        raise BluenoUserError("Cycle detected in job dependencies:", ' -> '.join(reversed(cycle)))
+        logger.error(msg % " -> ".join(reversed(cycle)))
+        raise BluenoUserError("Cycle detected in job dependencies:", " -> ".join(reversed(cycle)))
 
     # Step 2: Link dependencies
     name_to_activity = {activity.job.name: activity for activity in pipeline.activities}

@@ -8,6 +8,7 @@ from .read.parquet import read_parquet
 from .transform.transforms import (
     add_audit_columns,
     apply_scd_type_2,
+    apply_soft_delete_flag,
     deduplicate,
     normalize_column_names,
     reorder_columns_by_prefix,
@@ -30,6 +31,7 @@ __all__ = (
     "read_delta",
     "deduplicate",
     "apply_scd_type_2",
+    "apply_soft_delete_flag",
     "normalize_column_names",
     "add_audit_columns",
     "write_parquet",
