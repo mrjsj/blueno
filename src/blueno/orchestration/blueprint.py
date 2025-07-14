@@ -380,6 +380,18 @@ class Blueprint(BaseJob):
             soft_delete_column=self._is_deleted_column,
         )
 
+        # This is not pretty, but most convinient way to fix the updated_at column
+        if "add_audit_columns" in self.post_transforms:
+            self._dataframe = self._dataframe.drop(
+                self._updated_at_column,
+            )
+            self._post_transform_add_audit_columns()
+        elif self._updated_at_column in (source_df.collect_schema().names() if isinstance(source_df, pl.LazyFrame) else source_df.schema.names()):
+            self._dataframe = self._dataframe.with_columns(
+                pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us")).alias(self._updated_at_column)
+            )
+
+
     @property
     def _write_modes(self) -> Dict[str, Callable]:
         """Returns a dictionary of available write methods."""
@@ -423,12 +435,35 @@ class Blueprint(BaseJob):
     def _post_transform_add_audit_columns(self):
         """Adds audit columns to the dataframe."""
         timestamp = datetime.now(timezone.utc)
+        default_valid_from = datetime(1970, 1, 1, tzinfo=timezone.utc)
 
+        audit_columns = {
+            self._created_at_column: pl.lit(timestamp)
+            .cast(pl.Datetime("us"))
+            .alias(self._created_at_column),
+            self._updated_at_column: pl.lit(timestamp)
+            .cast(pl.Datetime("us"))
+            .alias(self._updated_at_column),
+            self._valid_from_column: pl.lit(default_valid_from)
+            .cast(pl.Datetime("us"))
+            .alias(self._valid_from_column),
+            self._valid_to_column: pl.lit(None)
+            .cast(pl.Datetime("us"))
+            .alias(self._valid_to_column),
+            self._is_current_column: pl.lit(True).alias(self._is_current_column),
+            self._is_deleted_column: pl.lit(False).alias(self._is_deleted_column),
+        }
         self._dataframe = self._dataframe.with_columns(
-            pl.lit(timestamp).cast(pl.Datetime("us", "UTC")).alias(self._created_at_column),
-            pl.lit(timestamp).cast(pl.Datetime("us", "UTC")).alias(self._updated_at_column),
-            pl.lit(True).alias(self._is_current_column),
-            pl.lit(False).alias(self._is_deleted_column),
+            *[
+                col_expr
+                for col_name, col_expr in audit_columns.items()
+                if col_name
+                not in (
+                    self._dataframe.columns
+                    if isinstance(self._dataframe, pl.DataFrame)
+                    else self._dataframe.collect_schema().names()
+                )
+            ]
         )
 
     @property
