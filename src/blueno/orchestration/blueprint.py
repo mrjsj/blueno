@@ -14,6 +14,7 @@ from typing_extensions import override
 from blueno.etl import (
     append,
     apply_scd_type_2,
+    apply_soft_delete_flag,
     incremental,
     overwrite,
     read_delta,
@@ -136,7 +137,7 @@ class Blueprint(BaseJob):
             partition_by=["year", "month", "day"],
             incremental_column="order_timestamp",
             scd2_column="modified_timestamp",
-            write_mode="scd2_by_column",
+            write_mode="upsert",
             format="delta",
             tags={
                 "owner": "Alice Wonderlands",
@@ -147,6 +148,7 @@ class Blueprint(BaseJob):
             post_transforms=[
                 "deduplicate",
                 "add_audit_columns",
+                "apply_scd2_by_column",
             ],
             deduplication_order_columns=["modified_timestamp"],
             priority=110,
@@ -313,7 +315,7 @@ class Blueprint(BaseJob):
     def _is_deleted_column(self) -> str:
         return self._system_columns.get("is_deleted_column", "__is_deleted")
 
-    def _write_mode_scd2_by_column(self):
+    def _post_transform_apply_scd2_by_column(self):
         scd2_column_dtype = self._dataframe.select(self.scd2_column).dtypes[0]
 
         if isinstance(scd2_column_dtype, pl.Datetime):
@@ -351,7 +353,7 @@ class Blueprint(BaseJob):
         target_dt = get_or_create_delta_table(self.table_uri, schema)
         target_df = pl.scan_delta(target_dt)
 
-        upsert_df = apply_scd_type_2(
+        self._dataframe = apply_scd_type_2(
             source_df=source_df,
             target_df=target_df,
             primary_key_columns=self.primary_keys,
@@ -359,17 +361,24 @@ class Blueprint(BaseJob):
             valid_to_column=self._valid_to_column,
         )
 
-        upsert(
-            table_or_uri=self.table_uri,
-            df=upsert_df,
-            key_columns=self.primary_keys + [self._valid_from_column],
-            predicate_exclusion_columns=[self._identity_column, self._created_at_column],
-            update_exclusion_columns=[self._identity_column, self._created_at_column],
+        if self._valid_from_column not in self.primary_keys:
+            self.primary_keys = self.primary_keys + [self._valid_from_column]
+
+    def _post_transform_apply_soft_delete_flag(self):
+        source_df = self._dataframe
+        schema = (
+            source_df.collect_schema() if isinstance(source_df, pl.LazyFrame) else source_df.schema
         )
 
-    def _write_mode_scd2_by_time(self):
-        """Write mode for Slowly Changing Dimension Type 2 by time."""
-        raise NotImplementedError()
+        target_dt = get_or_create_delta_table(self.table_uri, schema)
+        target_df = pl.scan_delta(target_dt)
+
+        self._dataframe = apply_soft_delete_flag(
+            source_df=source_df,
+            target_df=target_df,
+            primary_key_columns=self.primary_keys,
+            soft_delete_column=self._is_deleted_column,
+        )
 
     @property
     def _write_modes(self) -> Dict[str, Callable]:
@@ -378,9 +387,11 @@ class Blueprint(BaseJob):
             "append": lambda: append(self.table_uri, self._dataframe),
             "overwrite": lambda: overwrite(self.table_uri, self._dataframe),
             "upsert": lambda: upsert(
-                self.table_uri,
-                self._dataframe,
-                self.primary_keys,
+                table_or_uri=self.table_uri,
+                df=self._dataframe,
+                key_columns=self.primary_keys,
+                predicate_exclusion_columns=[self._identity_column, self._created_at_column],
+                update_exclusion_columns=[self._identity_column, self._created_at_column],
             ),
             "incremental": lambda: incremental(
                 self.table_uri, self._dataframe, self.incremental_column
@@ -390,8 +401,6 @@ class Blueprint(BaseJob):
                 self._dataframe,
                 self.incremental_column,
             ),
-            "scd2_by_column": self._write_mode_scd2_by_column,
-            "scd2_by_time": self._write_mode_scd2_by_time,
             **self._extend_write_modes,
         }
 
@@ -429,6 +438,8 @@ class Blueprint(BaseJob):
             "add_audit_columns": self._post_transform_add_audit_columns,
             "add_identity_column": self._post_transform_add_identity_column,
             "deduplicate": self._post_transform_deduplicate,
+            "apply_scd2_by_column": self._post_transform_apply_scd2_by_column,
+            "apply_soft_delete_flag": self._post_transform_apply_soft_delete_flag,
             **self._extend_post_transforms,
         }
 
@@ -474,7 +485,7 @@ class Blueprint(BaseJob):
         """Reads from the blueprint and returns a dataframe."""
         if self._dataframe is not None:
             logger.debug("reading %s %s from %s", self.type, self.name, "dataframe")
-            return self._dataframe
+            return self._dataframe.lazy()
 
         if self._preview:
             logger.debug("reading %s %s from preview", self.type, self.name)

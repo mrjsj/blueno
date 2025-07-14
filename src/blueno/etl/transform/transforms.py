@@ -379,3 +379,27 @@ def apply_scd_type_2(
     )
 
     return upsert_df
+
+
+def apply_soft_delete_flag(
+    source_df: DataFrameType,
+    target_df: DataFrameType,
+    primary_key_columns: List[str],
+    soft_delete_column: str,
+) -> DataFrameType:
+    """Applies a soft delete flag to the source dataframe.
+
+    Args:
+        source_df: The new/source DataFrame containing updated records.
+        target_df: The existing/target DataFrame containing current records.
+        primary_key_columns: Column(s) that uniquely identify each entity.
+        soft_delete_column: Column name for the soft delete column.
+
+    Returns:
+        A DataFrame containing both current and deleted records.
+    """
+    deleted_in_source = target_df.join(
+        other=source_df, on=primary_key_columns, how="anti"
+    ).with_columns(pl.lit(True).alias(soft_delete_column))
+
+    return pl.concat([source_df, deleted_in_source], how="diagonal")
