@@ -387,22 +387,28 @@ def apply_soft_delete_flag(
     primary_key_columns: List[str],
     soft_delete_column: str,
 ) -> DataFrameType:
-    """Applies a soft delete flag to the source dataframe.
+    """Marks records as deleted which exists in the target dataframe but not in the source dataframe.
 
     Args:
         source_df: The new/source DataFrame containing updated records.
         target_df: The existing/target DataFrame containing current records.
-        primary_key_columns: Column(s) that uniquely identify each entity.
-        soft_delete_column: Column name for the soft delete column.
+        primary_key_columns: Column(s) that uniquely identify each record.
+        soft_delete_column: Column name for the soft delete column to be added.
 
     Returns:
-        A DataFrame containing both current and deleted records.
+        A DataFrame containing the UNION of target dataframe rows marked as soft deleted and the source dataframe rows marked as NOT soft deleted.
     """
-    deleted_in_source = target_df.join(
-        other=source_df, on=primary_key_columns, how="anti"
-    ).with_columns(pl.lit(True).alias(soft_delete_column))
-
-    return pl.concat(
-        [source_df.with_columns(pl.lit(False).alias(soft_delete_column)), deleted_in_source],
+    df = pl.concat(
+        (
+            target_df.join(other=source_df, on=primary_key_columns, how="anti").with_columns(
+                pl.lit(True).alias(soft_delete_column),
+            ),
+            source_df.with_columns(
+                pl.lit(False).alias(soft_delete_column)
+            ),
+        ),
         how="diagonal",
     )
+
+    return df
+
