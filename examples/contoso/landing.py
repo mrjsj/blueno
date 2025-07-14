@@ -87,7 +87,8 @@ def landing_product() -> DataFrameType:
     table_uri=lakehouse_base_uri + "sales",
     format="delta",
     primary_keys=["OrderKey", "LineNumber"],
-    write_mode="scd2_by_column",
+    post_transforms=["apply_scd2_by_column"],
+    write_mode="upsert",
     incremental_column="OrderDate",
     scd2_column="OrderDate",
 )
