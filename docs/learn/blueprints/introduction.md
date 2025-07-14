@@ -3,7 +3,7 @@
 A blueprint is a Python function decorator to declaratively design a table/entity. It is inspired by dbt and SQLMesh "models".
 However, instead of writing in SQL with jinja-like templates, you write in pure Python - there's no "compilation" step.
 
-When a function is decorated with the `blueprint` decorator, it is automatically registered in a `BlueprintRegistry` which is used for creating the Directed Acyclic Graph (DAG) for running the blueprints in right order, and with highest possible concurrency.
+When a function is decorated with the `Blueprint.register` decorator, it is automatically registered in a `JobRegistry` which is used for creating the Directed Acyclic Graph (DAG) for running the blueprints in right order, and with highest possible concurrency.
 
 ## Simple example
 A simple example is a "source" blueprint. It has no dependencies and can thus be executed as the first blueprint in the DAG.
@@ -33,7 +33,7 @@ One parameter is `table_uri` which defines where to store this dataframe as a de
 The `blueprint` can now be run with the command.
 
 ```sh
-blueno run
+blueno run --project-path path/to/blueprints
 ```
 
 ## Another example
@@ -95,7 +95,7 @@ def bronze_sales() -> DataFrameType:
 If we now run the command with the `--show-dag` flag.
 
 ```sh
-blueno run --show-dag
+blueno run path/to/blueprints --show-dag
 ```
 
 We can see the three blueprints. However, since there are no dependencies, the DAG is quite uninteresting.
@@ -201,7 +201,8 @@ You can see a complete list of supported write modes in the [Blueprint API Refer
 Now we can run the blueprints again, however this time I supply the command with `--select`. This ensures we *only* run the `gold_sales_metrics` blueprint, because I know we already ran its upstream dependencies, so there is no need to re-run them.
 
 ```sh
-blueno run --select gold_sales_metrics \
+blueno run --project-path path/to/blueprints
+           --select gold_sales_metrics \
            --display-mode log \
            --log-level INFO \
            --show-dag
