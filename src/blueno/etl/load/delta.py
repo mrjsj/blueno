@@ -211,6 +211,14 @@ def replace_range(
 
     df = df.to_arrow()
 
+    if df.num_rows == 0:
+        logger.info("the source dataframe is empty - skip writing to %s" % dt.table_uri)
+        return
+    
+    if min_value is None and max_value is None:
+        logger.error("the column %s in source dataframe only contain NULLs - cannot overwrite with predicate to %s" % (range_column, dt.table_uri))
+        raise Exception("the column %s in source dataframe only contain NULLs - cannot overwrite with predicate to %s" % (range_column, dt.table_uri))
+
     write_deltalake(
         table_or_uri=dt,
         data=df,
