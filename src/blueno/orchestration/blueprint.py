@@ -531,6 +531,7 @@ class Blueprint(BaseJob):
             logger.debug("reading %s %s from %s", self.type, self.name, self.table_uri)
             return self.target_df
 
+
         msg = "%s %s is not materialized - most likely because it was never materialized, or it's an ephemeral format, i.e. 'dataframe'"
         logger.error(msg, self.type, self.name)
         raise BluenoUserError(msg % (self.type, self.name))
@@ -658,7 +659,8 @@ class Blueprint(BaseJob):
     @track_step
     def free_memory(self):
         """Clears the collected dataframe to free memory."""
-        self._dataframe = None
+        if self.format == "delta":
+            self._dataframe = None
 
     @override
     @track_step
