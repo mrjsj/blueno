@@ -125,9 +125,7 @@ class Pipeline:
                         act.status = ActivityStatus.CANCELLED
                 continue
 
-            if activity.status is ActivityStatus.COMPLETED and self._have_all_dependents_completed(
-                activity
-            ):
+            if activity.status is ActivityStatus.COMPLETED: #and self._have_all_dependents_completed(activity):
                 activity.job.free_memory()
 
     def _can_schedule_activity(self, activity: PipelineActivity, pipeline_concurrency: int) -> bool:
