@@ -8,6 +8,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Callable, Dict, List, Optional
 
 import polars as pl
+from croniter import croniter
+from deltalake import WriterProperties
 from polars.testing import assert_frame_equal
 from typing_extensions import override
 
@@ -30,7 +32,12 @@ from blueno.exceptions import (
 )
 from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_step
 from blueno.types import DataFrameType
-from blueno.utils import get_last_modified_time, get_max_column_value, get_or_create_delta_table
+from blueno.utils import (
+    get_delta_table,
+    get_last_modified_time,
+    get_max_column_value,
+    get_or_create_delta_table,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +56,7 @@ class Blueprint(BaseJob):
     partition_by: List[str]
     incremental_column: Optional[str] = None
     scd2_column: Optional[str] = None
+    maintenance_schedule: Optional[str] = None
     freshness: Optional[timedelta] = None
 
     _inputs: list[BaseJob] = field(default_factory=list)
@@ -73,6 +81,7 @@ class Blueprint(BaseJob):
         deduplication_order_columns: Optional[List[str]] = None,
         priority: int = 100,
         max_concurrency: Optional[int] = None,
+        maintenance_schedule: Optional[int] = None,
         freshness: Optional[timedelta] = None,
         **kwargs,
     ):
@@ -102,6 +111,10 @@ class Blueprint(BaseJob):
                 When set, limits the global concurrency while this blueprint is running.
                 This is useful for blueprints with high CPU or memory requirements. For example, setting max_concurrency=1 ensures this job runs serially, while still allowing other jobs to run in parallel.
                 Higher priority jobs will be scheduled first when concurrent limits are reached.
+            maintenance_schedule: Optional cron style for table maintenance.
+                Table maintenance compacts and vacuums the delta table.
+                If not provided, no maintenance will be executed.
+                See example for how to use this.
             freshness: Optional freshness threshold for the blueprint.
                 Only applicable if the format is `delta`.
                 If set, the blueprint will only be processed if the delta table's last modification time is older than the freshness threshold.
@@ -153,6 +166,7 @@ class Blueprint(BaseJob):
             deduplication_order_columns=["modified_timestamp"],
             priority=110,
             max_concurrency=2,
+            maintenance_schedule="* * 22 6 *", # Runs maintenance if blueprint is run between 22 and 23 on Saturdays.
             freshness=timedelta(hours=1),
         )
         def gold_customer(self: Blueprint, silver_customer: DataFrameType) -> DataFrameType:
@@ -191,6 +205,14 @@ class Blueprint(BaseJob):
 
     @property
     def _input_validations(self) -> List[tuple[bool, str]]:
+
+        def is_valid_cron(expr: str) -> bool:
+            try:
+                croniter(expr)
+                return True
+            except Exception:
+                return False
+
         rules = [
             (
                 self.schema is not None and not isinstance(self.schema, pl.Schema),
@@ -250,6 +272,10 @@ class Blueprint(BaseJob):
                 or not all(isinstance(k, str) and isinstance(v, str) for k, v in self.tags.items()),
                 "tags must be a dictionary, and all keys and values must be of type `str`.",
             ),
+            (
+                self.maintenance_schedule is not None and not is_valid_cron(self.maintenance_schedule),
+                "maintenance_schedule must be valid cron with exactly 5, 6 or 7 columns."
+            )
         ]
 
         rules.extend(self._extend_input_validations)
@@ -659,6 +685,36 @@ class Blueprint(BaseJob):
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
 
+    @track_step
+    def maintain(self):
+        """Maintains the delta table."""
+        if self.format != "delta":
+            logger.debug("not running maintenance for %s as format for is not delta - got format %s", self.name, self.format)
+            return
+
+        if self.maintenance_schedule is None:
+            logger.debug("no maintenance as maintenance_schedule is None")
+            return
+
+        from croniter import croniter
+        execution_time = datetime.now(timezone=timezone.utc)
+
+        if not croniter(self.maintenance_schedule, execution_time):
+            logger.info("no maintenance for %s as current time %s does not match the maintenance schedule %s", self.name, execution_time, self.maintenance_schedule)
+            return
+
+        logger.info("running compaction on table %s", self.name)
+        dt = get_delta_table(self.table_uri)
+        wp = WriterProperties(compression="ZSTD")
+        dt.optimize.compact(writer_properties=wp)
+
+        logger.info("running vacuum on table %s", self.name)
+        dt = get_delta_table(self.table_uri)
+        dt.vacuum(dry_run=False)
+        
+        logger.info("running cleanup metadata on table %s", self.name)
+        dt.cleanup_metadata()
+
     @override
     @track_step
     def free_memory(self):
@@ -675,6 +731,7 @@ class Blueprint(BaseJob):
         self.post_transform()
         self.validate_schema()
         self.write()
+        self.maintain()
 
     @track_step
     def preview(self, show_preview: bool = True, limit: int = 10):

@@ -32,6 +32,22 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
     return dt
 
 
+def get_delta_table(table_uri: str) -> DeltaTable:
+    """Retrieves a Delta table. Raises exception if table does not exist.
+
+    Args:
+        table_uri: The URI of the Delta table.
+
+    Returns:
+        The Delta table.
+    """
+    storage_options = get_storage_options(table_uri)
+
+    dt = DeltaTable(table_uri, storage_options=storage_options)
+    
+    return dt
+
+
 def get_last_modified_time(table_uri: str) -> datetime:
     """Retrieves the last modified time of a Delta table.
 
