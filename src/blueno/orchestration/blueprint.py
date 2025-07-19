@@ -195,6 +195,7 @@ class Blueprint(BaseJob):
                 priority=priority,
                 max_concurrency=max_concurrency,
                 freshness=freshness,
+                maintenance_schedule=maintenance_schedule,
                 _fn=func,
                 **kwargs,
             )
