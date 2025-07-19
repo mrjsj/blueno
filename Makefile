@@ -97,5 +97,40 @@ pr:
 		fi; \
 	done
 
+release:
+	@echo "Current tags:"
+	@git tag | sort -V | tail -n 5
+	@latest_tag=$$(git tag | sort -V | tail -n 1); \
+	if [ -z "$$latest_tag" ]; then \
+		latest_tag="v0.0.0"; \
+	fi; \
+	echo "Latest tag: $$latest_tag"; \
+	echo "Select version bump:"; \
+	echo "1) major"; \
+	echo "2) minor"; \
+	echo "3) patch"; \
+	read -p "Enter choice [1-3]: " choice; \
+	case $$choice in \
+		1) bump="major" ;; \
+		2) bump="minor" ;; \
+		3) bump="patch" ;; \
+		*) echo "Invalid choice." && exit 1 ;; \
+	esac; \
+	ver=$$(echo $$latest_tag | sed 's/^v//' ); \
+	set -- $$(echo $$ver | tr '.' ' '); \
+	major=$$1; minor=$$2; patch=$$3; \
+	case $$bump in \
+		major) major=$$((major + 1)); minor=0; patch=0 ;; \
+		minor) minor=$$((minor + 1)); patch=0 ;; \
+		patch) patch=$$((patch + 1)) ;; \
+	esac; \
+	new_tag="v$$major.$$minor.$$patch"; \
+	echo "New tag will be: $$new_tag"; \
+	read -p "Confirm tag creation and push? (y/N) " confirm; \
+	if [ "$$confirm" != "y" ] && [ "$$confirm" != "Y" ]; then \
+		echo "Aborted."; \
+		exit 1; \
+	fi; \
+	git tag $$new_tag && git push origin $$new_tag
 
-		
+
