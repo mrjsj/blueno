@@ -57,7 +57,7 @@ test-contoso:
 	@{ \
 	  uv run blueno run --project-dir examples/contoso --concurrency 4; \
 	  status=$$?; \
-	  rm -rf jaffle_shop; \
+	  rm -rf contoso; \
 	  exit $$status; \
 	}
 
