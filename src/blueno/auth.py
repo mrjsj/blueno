@@ -144,13 +144,27 @@ def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
 
     match protocol:
         case "abfss":
-            storage_options = {
-                "bearer_token": get_azure_storage_access_token(),
-            }
+            tenant_id = os.getenv("AZURE_TENANT_ID")
+            client_id = os.getenv("AZURE_CLIENT_ID")
+            client_secret = os.getenv("AZURE_CLIENT_SECRET")
+            if tenant_id is not None and client_id is not None and client_secret is not None:
+                logger.debug("getting storage options from environment variables AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET.")
+                storage_options = {
+                    tenant_id: tenant_id,
+                    client_id: client_id,
+                    client_secret: client_secret
+                }
+            else:
+                storage_options = {
+                    "bearer_token": get_azure_storage_access_token(),
+                }
             # TODO: `allow_invalid_certificates` is set due to: https://github.com/delta-io/delta-rs/issues/3243
             # This is specifically an issue in the Microsoft Fabric Python runtime.
             if "notebookutils" in sys.modules:
                 storage_options["allow_invalid_certificates"] = "true"
+
+            # Timeout some issues related to delta-rs: https://github.com/delta-io/delta-rs/issues/2639
+            storage_options["timeout"] = "120s"                
 
             return storage_options
 
