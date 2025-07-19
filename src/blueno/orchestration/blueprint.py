@@ -166,7 +166,7 @@ class Blueprint(BaseJob):
             deduplication_order_columns=["modified_timestamp"],
             priority=110,
             max_concurrency=2,
-            maintenance_schedule="* * 22 6 *", # Runs maintenance if blueprint is run between 22 and 23 on Saturdays.
+            maintenance_schedule="* * 22 6 *",  # Runs maintenance if blueprint is run between 22 and 23 on Saturdays.
             freshness=timedelta(hours=1),
         )
         def gold_customer(self: Blueprint, silver_customer: DataFrameType) -> DataFrameType:
@@ -205,7 +205,6 @@ class Blueprint(BaseJob):
 
     @property
     def _input_validations(self) -> List[tuple[bool, str]]:
-
         def is_valid_cron(expr: str) -> bool:
             try:
                 croniter(expr)
@@ -273,9 +272,10 @@ class Blueprint(BaseJob):
                 "tags must be a dictionary, and all keys and values must be of type `str`.",
             ),
             (
-                self.maintenance_schedule is not None and not is_valid_cron(self.maintenance_schedule),
-                "maintenance_schedule must be valid cron with exactly 5, 6 or 7 columns."
-            )
+                self.maintenance_schedule is not None
+                and not is_valid_cron(self.maintenance_schedule),
+                "maintenance_schedule must be valid cron with exactly 5, 6 or 7 columns.",
+            ),
         ]
 
         rules.extend(self._extend_input_validations)
@@ -689,7 +689,11 @@ class Blueprint(BaseJob):
     def maintain(self):
         """Maintains the delta table."""
         if self.format != "delta":
-            logger.debug("not running maintenance for %s as format for is not delta - got format %s", self.name, self.format)
+            logger.debug(
+                "not running maintenance for %s as format for is not delta - got format %s",
+                self.name,
+                self.format,
+            )
             return
 
         if self.maintenance_schedule is None:
@@ -697,10 +701,16 @@ class Blueprint(BaseJob):
             return
 
         from croniter import croniter
-        execution_time = datetime.now(timezone=timezone.utc)
+
+        execution_time = datetime.now(timezone.utc)
 
         if not croniter(self.maintenance_schedule, execution_time):
-            logger.info("no maintenance for %s as current time %s does not match the maintenance schedule %s", self.name, execution_time, self.maintenance_schedule)
+            logger.info(
+                "no maintenance for %s as current time %s does not match the maintenance schedule %s",
+                self.name,
+                execution_time,
+                self.maintenance_schedule,
+            )
             return
 
         logger.info("running compaction on table %s", self.name)
@@ -711,7 +721,7 @@ class Blueprint(BaseJob):
         logger.info("running vacuum on table %s", self.name)
         dt = get_delta_table(self.table_uri)
         dt.vacuum(dry_run=False)
-        
+
         logger.info("running cleanup metadata on table %s", self.name)
         dt.cleanup_metadata()
 
