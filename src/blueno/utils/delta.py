@@ -65,7 +65,9 @@ def get_last_modified_time(table_uri: str) -> datetime:
 
     metadata = DeltaTable(table_uri, storage_options=storage_options).history(50)
     timestamp = next(
-        commit.get("timestamp") for commit in metadata if commit.get("operation") in tracked_operations
+        commit.get("timestamp")
+        for commit in metadata
+        if commit.get("operation") in tracked_operations
     )
 
     if timestamp is None:

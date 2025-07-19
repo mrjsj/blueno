@@ -403,12 +403,9 @@ def apply_soft_delete_flag(
             target_df.join(other=source_df, on=primary_key_columns, how="anti").with_columns(
                 pl.lit(True).alias(soft_delete_column),
             ),
-            source_df.with_columns(
-                pl.lit(False).alias(soft_delete_column)
-            ),
+            source_df.with_columns(pl.lit(False).alias(soft_delete_column)),
         ),
         how="diagonal",
     )
 
     return df
-

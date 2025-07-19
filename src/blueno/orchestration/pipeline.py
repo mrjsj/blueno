@@ -10,12 +10,8 @@ from fnmatch import fnmatch
 from functools import lru_cache
 from typing import Dict, List, Optional
 
-import deltalake.exceptions
-
 from blueno.exceptions import BluenoUserError
 from blueno.orchestration.job import BaseJob
-import polars as pl
-import deltalake
 
 # class Trigger(Enum):
 #     ON_SUCCESS = "on_success"
@@ -125,7 +121,9 @@ class Pipeline:
                         act.status = ActivityStatus.CANCELLED
                 continue
 
-            if activity.status is ActivityStatus.COMPLETED: #and self._have_all_dependents_completed(activity):
+            if (
+                activity.status is ActivityStatus.COMPLETED
+            ):  # and self._have_all_dependents_completed(activity):
                 activity.job.free_memory()
 
     def _can_schedule_activity(self, activity: PipelineActivity, pipeline_concurrency: int) -> bool:
@@ -184,7 +182,7 @@ class Pipeline:
     @property
     def _has_ready_activities(self) -> bool:
         return any(self._ready_activities)
-    
+
     def run_sequential(self):
         """Run activities sequentially."""
         while self._has_ready_activities or self._running_activities:
@@ -203,11 +201,10 @@ class Pipeline:
                     activity.duration = time.time() - activity.start
                     self.failed_jobs[activity.job.name] = e
                     activity.exception = e
-                    logger.error("Error running blueprint %s: %s", activity.job.name, e)                    
+                    logger.error("Error running blueprint %s: %s", activity.job.name, e)
 
                 self._update_activities()
                 self._update_activities_status()
-
 
     def run_activity(self, activity: PipelineActivity, **kwargs):
         """Run a single activity."""
@@ -244,7 +241,6 @@ class Pipeline:
         #         activity.exception = exception
         #         logger.error("Error running blueprint %s: %s", activity.job.name, e)
 
-    
     def run(self, concurrency: int = 1, **kwargs):
         """Runs the pipeline."""
         self._update_activities_status()
@@ -265,7 +261,9 @@ class Pipeline:
 
                         logger.debug("setting status for activity %s to QUEUED", activity.job.name)
                         activity.status = ActivityStatus.QUEUED
-                        future = executor.submit(self.run_activity, activity, context=kwargs.get("context"))
+                        future = executor.submit(
+                            self.run_activity, activity, context=kwargs.get("context")
+                        )
                         self._running_activities[future] = activity
 
                     while True:
@@ -277,20 +275,21 @@ class Pipeline:
                             break
                         time.sleep(0.1)
 
-                    
-
                     for future in done:
                         activity = self._running_activities.pop(future)
                         maybe_exception = future.exception()
                         if maybe_exception:
-                            logger.debug("setting status for activity %s to FAILED", activity.job.name)
+                            logger.debug(
+                                "setting status for activity %s to FAILED", activity.job.name
+                            )
                             logger.info("activity %s completed in failure", activity.job.name)
                             activity.status = ActivityStatus.FAILED
                             activity.duration = time.time() - activity.start
                             self.failed_jobs[activity.job.name] = maybe_exception
                             activity.exception = maybe_exception
-                            logger.error("Error running blueprint %s: %s", activity.job.name, maybe_exception)
-                            
+                            logger.error(
+                                "Error running blueprint %s: %s", activity.job.name, maybe_exception
+                            )
 
                     self._update_activities_status()
 

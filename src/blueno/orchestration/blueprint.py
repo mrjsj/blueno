@@ -386,11 +386,16 @@ class Blueprint(BaseJob):
                 self._updated_at_column,
             )
             self._post_transform_add_audit_columns()
-        elif self._updated_at_column in (source_df.collect_schema().names() if isinstance(source_df, pl.LazyFrame) else source_df.schema.names()):
+        elif self._updated_at_column in (
+            source_df.collect_schema().names()
+            if isinstance(source_df, pl.LazyFrame)
+            else source_df.schema.names()
+        ):
             self._dataframe = self._dataframe.with_columns(
-                pl.lit(datetime.now(timezone.utc)).cast(pl.Datetime("us")).alias(self._updated_at_column)
+                pl.lit(datetime.now(timezone.utc))
+                .cast(pl.Datetime("us"))
+                .alias(self._updated_at_column)
             )
-
 
     @property
     def _write_modes(self) -> Dict[str, Callable]:
@@ -530,7 +535,6 @@ class Blueprint(BaseJob):
         if self.table_uri is not None and self.format != "dataframe":
             logger.debug("reading %s %s from %s", self.type, self.name, self.table_uri)
             return self.target_df
-
 
         msg = "%s %s is not materialized - most likely because it was never materialized, or it's an ephemeral format, i.e. 'dataframe'"
         logger.error(msg, self.type, self.name)
