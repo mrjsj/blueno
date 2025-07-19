@@ -41,7 +41,12 @@ def _render_table(activities: list[PipelineActivity]):
     table.columns[2].min_width = 10
     table.columns[3].min_width = 30
 
-    for activity in activities:
+    def sort_running_first(activities: list[PipelineActivity]) -> list[PipelineActivity]:
+        return sorted(activities, key=lambda a: 0 if a.status == ActivityStatus.RUNNING else 1)
+
+    sorted_activities = sort_running_first(activities)
+
+    for activity in sorted_activities:
         color = STATUS_COLOR.get(activity.status, "white")
         duration = f"{activity.duration:.1f}s" if activity.duration else "-"
         start = time.strftime("%H:%M:%S", time.localtime(activity.start)) if activity.start else "-"
