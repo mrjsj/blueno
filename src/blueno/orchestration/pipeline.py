@@ -219,7 +219,7 @@ class Pipeline:
         # try:
         activity.job.run()
         logger.debug("setting status for activity %s to COMPLETED", activity.job.name)
-        logger.info("activity %s completed successfully", activity.job.name)
+        logger.info("activity %s completed successfully in %s seconds", activity.job.name, activity.duration)
         activity.status = ActivityStatus.COMPLETED
         activity.duration = time.time() - activity.start
         # except (Exception, pl.exceptions.PolarsError, pl.exceptions.PanicException, deltalake.exceptions.DeltaError, RuntimeError, SystemError) as e:
@@ -282,9 +282,9 @@ class Pipeline:
                             logger.debug(
                                 "setting status for activity %s to FAILED", activity.job.name
                             )
-                            logger.info("activity %s completed in failure", activity.job.name)
                             activity.status = ActivityStatus.FAILED
                             activity.duration = time.time() - activity.start
+                            logger.info("activity %s completed in failure after %s seconds", activity.job.name, activity.duration)
                             self.failed_jobs[activity.job.name] = maybe_exception
                             activity.exception = maybe_exception
                             logger.error(
