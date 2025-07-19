@@ -482,4 +482,7 @@ def create_pipeline(
                     activity.status = ActivityStatus.SKIPPED
                     break
 
+    if all(activity.status is ActivityStatus.SKIPPED for activity in pipeline.activities):
+        logger.warning("no jobs matched the provided filters")
+
     return pipeline
