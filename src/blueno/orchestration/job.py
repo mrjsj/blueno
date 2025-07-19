@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import Callable, Dict, List, Optional
 
 # from blueno.blueprints.blueprint import Blueprint
-from blueno.exceptions import DuplicateJobError, JobNotFoundError
+from blueno.exceptions import DuplicateJobError, JobNotFoundError, BluenoUserError
 from blueno.types import DataFrameType
 
 logger = logging.getLogger(__name__)
@@ -150,7 +150,16 @@ class JobRegistry:
         cwd = os.getcwd()
         logger.debug("discovering jobs in %s", base_dir)
 
-        for py_file in base_dir.rglob("**/*.py"):
+        if not os.path.exists(base_dir):
+            logger.error("the provided path %s does not exist in the current working directory %s", base_dir, cwd)
+            raise BluenoUserError("the provided path %s does not exist in the current working directory %s" % (base_dir, cwd))
+
+        files = base_dir.rglob("**/*.py")
+
+        if len(files) == 0:
+            logger.warning("no .py files exists in %s", cwd+base_dir)
+
+        for py_file in files:
             # Skip __init__.py or hidden files
             if py_file.name.startswith("__"):
                 continue
