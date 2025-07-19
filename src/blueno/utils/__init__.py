@@ -3,11 +3,11 @@
 from blueno.utils.misc import quote_identifier, remove_none, separator_indices, shorten_dict_values
 
 from .delta import (
+    get_delta_table,
     get_last_modified_time,
     get_max_column_value,
     get_min_column_value,
     get_or_create_delta_table,
-    get_delta_table,
 )
 from .merge_helpers import (
     build_merge_predicate,

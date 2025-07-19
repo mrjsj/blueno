@@ -166,7 +166,7 @@ class JobRegistry:
             # Skip __init__.py or hidden files
             if py_file.name.startswith("__"):
                 continue
-            
+
             files_found = True
 
             module_path = py_file.with_suffix("")
@@ -184,7 +184,7 @@ class JobRegistry:
                 sys.path.remove(".")
             else:
                 importlib.import_module(module_name)
-        
+
         if not files_found:
             logger.warning("no .py files exists in %s", cwd + str(base_dir))
 

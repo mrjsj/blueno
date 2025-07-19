@@ -44,7 +44,7 @@ def get_delta_table(table_uri: str) -> DeltaTable:
     storage_options = get_storage_options(table_uri)
 
     dt = DeltaTable(table_uri, storage_options=storage_options)
-    
+
     return dt
 
 
