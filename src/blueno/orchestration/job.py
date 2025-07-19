@@ -156,8 +156,8 @@ class JobRegistry:
 
         files = base_dir.rglob("**/*.py")
 
-        if len(files) == 0:
-            logger.warning("no .py files exists in %s", cwd+base_dir)
+        if next(files, None) is None:
+            logger.warning("no .py files exists in %s", cwd + base_dir)
 
         for py_file in files:
             # Skip __init__.py or hidden files
