@@ -58,7 +58,7 @@ def _render_table(activities: list[PipelineActivity]):
             # activity.job.current_step,
             start,
             duration,
-            error
+            error,
         )
 
     panel = Panel(table, title="ETL DAG Status", border_style="blue")

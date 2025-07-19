@@ -10,8 +10,6 @@ from blueno.exceptions import BluenoUserError
 logger = logging.getLogger(__name__)
 
 
-
-
 class _CustomFormatter(logging.Formatter):
     grey = "\x1b[38;20m"
     yellow = "\x1b[33;20m"
@@ -64,7 +62,7 @@ def _prepare_blueprints(project_dir: str) -> None:
 def run(
     project_dir: str,
     select: Annotated[Optional[list[str]], Parameter(consume_multiple=True)] = None,
-    select_tags: Annotated[Optional[list[str]], Parameter(consume_multiple=True)] = None,    
+    select_tags: Annotated[Optional[list[str]], Parameter(consume_multiple=True)] = None,
     display_mode: Annotated[
         Literal["live", "log", "none"],
         Parameter(help="Show live updates, log output, or no output"),
@@ -99,9 +97,9 @@ def run(
 
     tag_filters: Dict[str, List[str]] = {}
     for tag in select_tags or []:
-        key, val = tag.split('=', 1)
+        key, val = tag.split("=", 1)
         if key in tag_filters:
-            tag_filters[key].append(val.split())    
+            tag_filters[key].append(val.split())
         else:
             tag_filters[key] = [val.strip()]
 
@@ -115,8 +113,8 @@ def run(
 
     if pipeline.failed_jobs:
         import sys
-        sys.exit(1)
 
+        sys.exit(1)
 
 
 @app.command
