@@ -161,15 +161,13 @@ class JobRegistry:
                 % (base_dir, cwd)
             )
 
-        files = base_dir.rglob("**/*.py")
-
-        if next(files, None) is None:
-            logger.warning("no .py files exists in %s", cwd + base_dir)
-
-        for py_file in files:
+        files_found = False
+        for py_file in base_dir.rglob("**/*.py"):
             # Skip __init__.py or hidden files
             if py_file.name.startswith("__"):
                 continue
+            
+            files_found = True
 
             module_path = py_file.with_suffix("")
 
@@ -186,6 +184,9 @@ class JobRegistry:
                 sys.path.remove(".")
             else:
                 importlib.import_module(module_name)
+        
+        if not files_found:
+            logger.warning("no .py files exists in %s", cwd + str(base_dir))
 
         logger.debug("done discovering jobs")
 
