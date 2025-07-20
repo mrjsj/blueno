@@ -748,9 +748,23 @@ class Blueprint(BaseJob):
 
             logger.info("running cleanup metadata on table %s", self.name)
             dt.cleanup_metadata()
+
+            # If the optimize/vacuum was a no-op, we don't actually write a timestamp, so we save a backup table property
+            last_optimize = get_last_modified_time(dt, ["OPTIMIZE", "VACUUM END"])
+
+            logger.debug("last optimize is now %s", last_optimize)
+
+            if last_optimize is None:
+                last_optimize = datetime.now(timezone.utc)
+                logger.debug("setting new maintenance timestamp to %s", last_optimize)
+                self.set_table_property(
+                    "blueno.lastMaintenanceTimestamp",
+                    str(int(last_optimize.timestamp() * 1000)),
+                )
+
         else:
             logger.debug(
-                "skipping vacuum, checkpoint and metadata cleanup on table %s as the was already maintained within the schedule",
+                "skipping vacuum, checkpoint and metadata cleanup on table %s as the table was already maintained within the schedule",
                 self.name,
             )
 
