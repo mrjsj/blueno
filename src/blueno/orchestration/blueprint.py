@@ -5,7 +5,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import polars as pl
 from croniter import croniter
@@ -818,6 +818,38 @@ class Blueprint(BaseJob):
         logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
         return ts or 0
 
+    def _find_first_upstream_table_and_unresolved_upstream_dependencies(
+        self,
+    ) -> Tuple[List[Blueprint], List[BaseJob]]:
+        """First the first immediate table dependencies and any unresolved upstream dependencies."""
+        visited_ids = set()
+        resolved = []
+        unresolved = []
+
+        def traverse(dep: BaseJob):
+            logger.debug("checking %s", dep.name)
+            dep_id = id(dep)
+            if dep_id in visited_ids:
+                return
+            visited_ids.add(dep_id)
+
+            # If no dependencies - it's a terminal node (external API, a hardcode DataFrame, external storage, etc.)
+            if not dep.depends_on:
+                logger.debug("adding unresolved %s", dep.name)
+                unresolved.append(dep)
+                return
+
+            for upstream in dep.depends_on:
+                if isinstance(upstream, Blueprint) and upstream.format == "delta":
+                    logger.debug("adding table %s", upstream.name)
+                    resolved.append(upstream)
+                    # Stop here - this is the first Blueprint with format = delta
+                else:
+                    traverse(upstream)
+
+        traverse(self)
+        return resolved, unresolved
+
     @track_step
     def needs_refresh(self) -> bool:
         """Checks if the blueprint needs to be refreshed."""
@@ -853,36 +885,70 @@ class Blueprint(BaseJob):
                 )
                 return False
 
-        table_dependencies = [
-            job for job in self.depends_on if isinstance(job, Blueprint) and job.format == "delta"
-        ]
+        if len(self.depends_on) == 0:
+            logger.info(
+                "table for blueprint %s has no dependencies and no freshness schedule, so it will always be refreshed",
+                self.name,
+            )
+            return True
+
+        table_dependencies, non_tables_dependencies = (
+            self._find_first_upstream_table_and_unresolved_upstream_dependencies()
+        )
+
+        if len(non_tables_dependencies) > 0:
+            logger.info(
+                "one or more of the blueprint %s dependencies resolves to a non-table so it's not possible to check the last refresh time - the upstream non-table dependencies are %s",
+                self.name,
+                ", ".join({dep.name for dep in non_tables_dependencies}),
+            )
+            return True
+
         if len(table_dependencies) > 0:
-            max_upstream_timestamp = max(
-                get_last_modified_time(job.table_uri, tracked_operations) or datetime(1970, 1, 1)
-                for job in table_dependencies
+            # We could probably store these on the job objects instead of running for each downstream dependency
+            timestamps = []
+            for table in table_dependencies:
+                ts = get_last_modified_time(
+                    table.table_uri,  # type: ignore[arg-type]
+                    tracked_operations,
+                )
+                logger.info(
+                    "blueprint %s has an (possibly indirect) upstream dependency on %s with a last refresh timestamp of %s",
+                    self.name,
+                    table.name,
+                    ts,
+                )
+                if ts is not None:
+                    timestamps.append(ts)
+
+            max_upstream_timestamp = (
+                max(timestamps) if len(timestamps) > 0 else datetime(1970, 1, 1)
             )
 
             self._max_upstream_timestamp = int(max_upstream_timestamp.timestamp())
 
             current_upstream_timestamp = self.get_upstream_timestamp_table_property()
             logger.info(
-                "upstream was last changed %s was this table was last changed %s",
-                max_upstream_timestamp,
-                datetime.fromtimestamp(current_upstream_timestamp / 1000),
+                "upstream was last changed %s and table %s last upstream refresh is %s",
+                max_upstream_timestamp.replace(microsecond=0),
+                self.name,
+                datetime.fromtimestamp(int(current_upstream_timestamp)),
             )
 
             if self._max_upstream_timestamp == int(current_upstream_timestamp):
                 logger.info(
-                    "skipped run for %s as its upstream dependents have not changed since last run.",
+                    "skipped run for %s as its upstream dependents have not changed since last run - if you want to force a refresh you can set the `freshness=timedelta(minutes=0)` on the blueprint.",
                     self.name,
                 )
                 return False
 
-        logger.info(
-            "table for blueprint %s has no dependencies and no freshness schedule, so it will always be refreshed",
-            self.name,
-        )
-        return True
+            logger.info(
+                "table for blueprint %s needs to be refreshed as upstream have changed",
+                self.name,
+            )
+            return True
+
+        raise Unreachable("Shouldn't happen.")
 
     @override
     @track_step
