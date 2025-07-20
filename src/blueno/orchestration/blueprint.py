@@ -129,6 +129,7 @@ class Blueprint(BaseJob):
 
         @Blueprint.register(
             table_uri="/path/to/stage/customer",
+            format="delta",
             primary_keys=["customer_id"],
             write_mode="overwrite",
         )
@@ -278,6 +279,10 @@ class Blueprint(BaseJob):
                 self.maintenance_schedule is not None
                 and not is_valid_cron(self.maintenance_schedule),
                 "maintenance_schedule must be valid cron with exactly 5, 6 or 7 columns.",
+            ),
+            (
+                self.table_uri is not None and self.format == "dataframe",
+                "cannot use table_uri when format is dataframe!",
             ),
         ]
 

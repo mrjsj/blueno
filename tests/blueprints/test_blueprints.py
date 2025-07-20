@@ -30,7 +30,7 @@ def test_blueprint_simple_example():
 
 
 def test_blueprint_registers_and_returns_blueprint():
-    @Blueprint.register(table_uri="memory://test")
+    @Blueprint.register(table_uri="memory://test", format="delta")
     def test_func():
         return pl.DataFrame({"a": [1, 2, 3]})
 
@@ -43,7 +43,7 @@ def test_blueprint_registers_and_returns_blueprint():
 
 
 def test_blueprint_custom_name():
-    @Blueprint.register(name="custom_name", table_uri="memory://test2")
+    @Blueprint.register(name="custom_name", table_uri="memory://test2", format="delta" )
     def test_func2():
         return pl.DataFrame({"b": [4, 5, 6]})
 
@@ -53,7 +53,7 @@ def test_blueprint_custom_name():
 
 
 def test_blueprint_duplicate_name_raises():
-    @Blueprint.register(name="dup", table_uri="memory://test3")
+    @Blueprint.register(name="dup", table_uri="memory://test3", format="delta")
     def func1():
         return pl.DataFrame({"c": [1]})
 
@@ -61,7 +61,7 @@ def test_blueprint_duplicate_name_raises():
 
     with pytest.raises(DuplicateJobError):
 
-        @Blueprint.register(name="dup", table_uri="memory://test4")
+        @Blueprint.register(name="dup", table_uri="memory://test4", format="delta")
         def func2():
             return pl.DataFrame({"d": [2]})
 
@@ -93,11 +93,11 @@ def test_blueprint_format_check():
 
 
 def test_blueprint_dependency_resolution():
-    @Blueprint.register(table_uri="memory://parent")
+    @Blueprint.register(table_uri="memory://parent", format="delta")
     def parent():
         return pl.DataFrame({"x": [1, 2]})
 
-    @Blueprint.register(table_uri="memory://child")
+    @Blueprint.register(table_uri="memory://child", format="delta")
     def child(parent: pl.DataFrame):
         return parent.with_columns(pl.col("x") + 1)
 
@@ -108,11 +108,11 @@ def test_blueprint_dependency_resolution():
 
 
 def test_blueprint_invalid_dependency_raises():
-    @Blueprint.register(table_uri="memory://issing_dep")
+    @Blueprint.register(table_uri="memory://issing_dep", format="delta")
     def issing_dep():
         return pl.DataFrame({"y": [1]})
 
-    @Blueprint.register(table_uri="memory://child")
+    @Blueprint.register(table_uri="memory://child", format="delta")
     def child(missing_dep: pl.DataFrame):
         return pl.DataFrame({"y": [1]})
 
@@ -122,13 +122,13 @@ def test_blueprint_invalid_dependency_raises():
 
 
 def test_blueprint_duplicate_table_uri_raises():
-    @Blueprint.register(table_uri="memory://table_uri")
+    @Blueprint.register(table_uri="memory://table_uri", format="delta")
     def parent():
         return pl.DataFrame({"y": [1]})
 
     with pytest.raises(InvalidJobError):
 
-        @Blueprint.register(table_uri="memory://table_uri")
+        @Blueprint.register(table_uri="memory://table_uri", format="delta")
         def child(parent):
             return pl.DataFrame({"y": [1]})
 
@@ -139,7 +139,7 @@ def test_blueprint_duplicate_table_uri_raises():
 def test_blueprint_transform_and_valid_schema_validation():
     schema = pl.Schema({"a": pl.Int64})
 
-    @Blueprint.register(table_uri="memory://test", schema=schema)
+    @Blueprint.register(table_uri="memory://test", schema=schema, format="delta")
     def test_func():
         return pl.DataFrame({"a": [1, 2, 3]})
 
@@ -151,7 +151,7 @@ def test_blueprint_transform_and_valid_schema_validation():
 def test_blueprint_transform_and_invalid_schema_validation():
     schema = pl.Schema({"a": pl.Int32})
 
-    @Blueprint.register(table_uri="memory://test", schema=schema)
+    @Blueprint.register(table_uri="memory://test", schema=schema, format="delta")
     def test_func():
         return pl.DataFrame({"a": [1, 2, 3]})
 
@@ -162,7 +162,7 @@ def test_blueprint_transform_and_invalid_schema_validation():
 
 
 def test_blueprint_transform_returns_non_dataframe_raises():
-    @Blueprint.register(table_uri="memory://test")
+    @Blueprint.register(table_uri="memory://test", format="delta")
     def test_func():
         return "not a dataframe"
 
@@ -173,7 +173,7 @@ def test_blueprint_transform_returns_non_dataframe_raises():
 
 def test_blueprint_transform_returns_duckdb_py_relation_passes():
     import duckdb
-    @Blueprint.register(table_uri="memory://test")
+    @Blueprint.register(table_uri="memory://test", format="delta")
     def test_func():
         return duckdb.sql("SELECT 1 as 'a'")
     
@@ -182,7 +182,7 @@ def test_blueprint_transform_returns_duckdb_py_relation_passes():
 
 def test_blueprint_transform_returns_duckdb_py_connection_passes():
     import duckdb
-    @Blueprint.register(table_uri="memory://test")
+    @Blueprint.register(table_uri="memory://test", format="delta")
     def test_func():
         return duckdb.execute("SELECT 1 as 'a'")
     
@@ -192,15 +192,15 @@ def test_blueprint_transform_returns_duckdb_py_connection_passes():
 
 def test_circular_dependencies_raises():
 
-    @Blueprint.register(table_uri="memory://bronze_transform")
+    @Blueprint.register(table_uri="memory://bronze_transform", format="delta")
     def bronze_transform(gold_transform): # Depends on gold - creating a circular dependency
         return pl.DataFrame()    
 
-    @Blueprint.register(table_uri="memory://silver_transform")
+    @Blueprint.register(table_uri="memory://silver_transform", format="delta")
     def silver_transform(bronze_transform):
         return pl.DataFrame()
     
-    @Blueprint.register(table_uri="memory://gold_transform")
+    @Blueprint.register(table_uri="memory://gold_transform", format="delta")
     def gold_transform(silver_transform):
         return pl.DataFrame()
     

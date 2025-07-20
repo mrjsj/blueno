@@ -28,7 +28,7 @@ def notify_end(gold_sales_metrics) -> None:
     logging.warning("I notified u!")
 
 
-@Blueprint.register(table_uri=f"{tmp_dir}/bronze/products")
+@Blueprint.register(table_uri=f"{tmp_dir}/bronze/products", format="delta")
 def bronze_products(notify_begin) -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -56,7 +56,7 @@ def landing_customers() -> DataFrameType:
     return df
 
 
-@Blueprint.register(table_uri=f"{tmp_dir}/bronze/customers")
+@Blueprint.register(table_uri=f"{tmp_dir}/bronze/customers", format="delta")
 def bronze_customers(landing_customers) -> DataFrameType:
     df = landing_customers
     time.sleep(random.random() * RAND_SIZE)
@@ -64,7 +64,7 @@ def bronze_customers(landing_customers) -> DataFrameType:
     return df
 
 
-@Blueprint.register(table_uri=f"{tmp_dir}/bronze/transactions")
+@Blueprint.register(table_uri=f"{tmp_dir}/bronze/transactions", format="delta")
 def bronze_transactions() -> DataFrameType:
     df = pl.DataFrame(
         {
@@ -81,6 +81,7 @@ def bronze_transactions() -> DataFrameType:
 
 @Blueprint.register(
     table_uri=f"{tmp_dir}/silver/products",
+    format="delta",
     primary_keys=["product_id"],
 )
 def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFrameType:
@@ -92,6 +93,7 @@ def silver_products(self: Blueprint, bronze_products: DataFrameType) -> DataFram
 
 @Blueprint.register(
     table_uri=f"{tmp_dir}/silver/customers",
+    format="delta",
     primary_keys=["customer_id"],
 )
 def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFrameType:
@@ -103,6 +105,7 @@ def silver_customers(self: Blueprint, bronze_customers: DataFrameType) -> DataFr
 
 @Blueprint.register(
     table_uri=f"{tmp_dir}/silver/transactions",
+    format="delta",
     primary_keys=["product_id"],
 )
 def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
@@ -114,6 +117,7 @@ def silver_transactions(bronze_transactions: DataFrameType) -> DataFrameType:
 
 @Blueprint.register(
     table_uri=f"{tmp_dir}/gold/sales_metrics",
+    format="delta",
     write_mode="incremental",
     incremental_column="transaction_date",
 )
