@@ -48,42 +48,57 @@ def get_delta_table(table_uri: str) -> DeltaTable:
     return dt
 
 
-def get_last_modified_time(table_uri: str) -> datetime:
+def get_last_modified_time(table_or_uri: str | DeltaTable, operations: list[str]) -> datetime:
     """Retrieves the last modified time of a Delta table.
 
     Args:
-        table_uri: A string URI to a Delta table.
-
+        table_or_uri: A string URI to a Delta table.
+        operations: The operations to search for. Should be a list of one or more of the following:
+        - `ADD COLUMN`
+        - `CREATE OR REPLACE TABLE`
+        - `CREATE TABLE`
+        - `WRITE`
+        - `DELETE`
+        - `UPDATE`
+        - `MERGE`
+        - `STREAMING UPDATE`
+        - `SET TBLPROPERTIES`
+        - `OPTIMIZE`
+        - `FSCK`
+        - `RESTORE`
+        - `VACUUM START`
+        - `VACUUM END`
+        - `ADD CONSTRAINT`
+        - `DROP CONSTRAINT`
+        - `ADD FEATURE`
+        - `UPDATE FIELD METADATA`
+        - `UPDATE TABLE METADATA`
+        
     Returns:
         The last modified time of the table, or None if the table does not exist.
+
 
     Example:
     ```python notest
     from blueno.utils import get_last_modified_time
 
-    last_modified = get_last_modified_time("path/to/delta_table")
+    last_modified = get_last_modified_time("path/to/delta_table", ["OPTIMIZE"])
     ```
     """
-    storage_options = get_storage_options(table_uri)
-
-    if isinstance(table_uri, str):
-        if not DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
+    if isinstance(table_or_uri, str):
+        storage_options = get_storage_options(table_or_uri)
+        if not DeltaTable.is_deltatable(table_or_uri, storage_options=storage_options):
             return datetime(1970, 1, 1)  # Return epoch time if table does not exist
 
-    tracked_operations = [
-        "CREATE OR REPLACE TABLE",
-        "WRITE",
-        "DELETE",
-        "UPDATE",
-        "MERGE",
-        "STREAMING UPDATE",
-    ]
+        dt = DeltaTable(table_or_uri, storage_options=storage_options)
+    else:
+        dt = table_or_uri
 
-    metadata = DeltaTable(table_uri, storage_options=storage_options).history(50)
+    metadata = dt.history()
     timestamp = next(
         commit.get("timestamp")
         for commit in metadata
-        if commit.get("operation") in tracked_operations
+        if commit.get("operation") in operations
     )
 
     if timestamp is None:

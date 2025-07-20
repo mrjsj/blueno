@@ -616,7 +616,15 @@ class Blueprint(BaseJob):
     def transform(self) -> None:
         """Runs the transformation."""
         if self.freshness:
-            ts = get_last_modified_time(self.table_uri)
+            tracked_operations = [
+                "CREATE OR REPLACE TABLE",
+                "WRITE",
+                "DELETE",
+                "UPDATE",
+                "MERGE",
+                "STREAMING UPDATE",
+            ]
+            ts = get_last_modified_time(self.table_uri, tracked_operations)
             if ts < datetime.now(timezone.utc) - self.freshness:
                 logger.debug(
                     "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
@@ -705,26 +713,37 @@ class Blueprint(BaseJob):
 
         execution_time = datetime.now(timezone.utc)
 
-        if not croniter(self.maintenance_schedule, execution_time):
-            logger.info(
-                "no maintenance for %s as current time %s does not match the maintenance schedule %s",
+        prev_schedule = croniter(self.maintenance_schedule, execution_time).get_prev(datetime)
+
+        dt = get_delta_table(self.table_uri)
+
+        last_optimize = get_last_modified_time(dt, ["OPTIMIZE"])
+        if last_optimize < prev_schedule:
+            logger.info("running compaction on table %s", self.name)
+            wp = WriterProperties(compression="ZSTD")
+            dt.optimize.compact(writer_properties=wp)
+        else:
+            logger.debug(
+                "skipping compaction on table %s as the was already compacted within the schedule",
                 self.name,
-                execution_time,
-                self.maintenance_schedule,
             )
-            return
 
-        logger.info("running compaction on table %s", self.name)
-        dt = get_delta_table(self.table_uri)
-        wp = WriterProperties(compression="ZSTD")
-        dt.optimize.compact(writer_properties=wp)
+        last_vacuum = get_last_modified_time(dt, ["VACUUM END"])
+        if last_vacuum < prev_schedule:
+            logger.info("running vacuum on table %s", self.name)
+            dt = get_delta_table(self.table_uri)
+            dt.vacuum(dry_run=False)
 
-        logger.info("running vacuum on table %s", self.name)
-        dt = get_delta_table(self.table_uri)
-        dt.vacuum(dry_run=False)
+            logger.info("running creating checkpoint on table %s", self.name)
+            dt.create_checkpoint()
 
-        logger.info("running cleanup metadata on table %s", self.name)
-        dt.cleanup_metadata()
+            logger.info("running cleanup metadata on table %s", self.name)
+            dt.cleanup_metadata()
+        else:
+            logger.debug(
+                "skipping vacuum, checkpoint and metadata cleanup on table %s as the was already maintained within the schedule",
+                self.name,
+            )
 
     @override
     @track_step
