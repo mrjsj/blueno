@@ -212,36 +212,18 @@ class Pipeline:
         if context is not None:
             context.thread_local_storage.invocation_id = context.invocation_id
 
-        logger.debug("setting status for activity %s to RUNNING", activity.job.name)
-        logger.info("starting activity %s", activity.job.name)
         activity.status = ActivityStatus.RUNNING
         activity.start = time.time()
-        # try:
+        logger.debug("setting status for activity %s to RUNNING", activity.job.name)
+        logger.info("starting activity %s", activity.job.name)
+
         activity.job.run()
+        activity.duration = time.time() - activity.start
+        activity.status = ActivityStatus.COMPLETED
         logger.debug("setting status for activity %s to COMPLETED", activity.job.name)
         logger.info(
             "activity %s completed successfully in %s seconds", activity.job.name, activity.duration
         )
-        activity.status = ActivityStatus.COMPLETED
-        activity.duration = time.time() - activity.start
-        # except (Exception, pl.exceptions.PolarsError, pl.exceptions.PanicException, deltalake.exceptions.DeltaError, RuntimeError, SystemError) as e:
-        #     logger.debug("setting status for activity %s to FAILED", activity.job.name)
-        #     logger.info("activity %s completed in failure", activity.job.name)
-        #     activity.status = ActivityStatus.FAILED
-        #     activity.duration = time.time() - activity.start
-        #     self.failed_jobs[activity.job.name] = e
-        #     activity.exception = e
-        #     logger.error("Error running blueprint %s: %s", activity.job.name, e)
-        # finally:
-        #     if activity.status not in (ActivityStatus.COMPLETED, ActivityStatus.FAILED):
-        #         activity.status = ActivityStatus.FAILED
-        #         logger.debug("setting status for activity %s to FAILED", activity.job.name)
-        #         logger.info("activity %s failed due to unknown error", activity.job.name)
-        #         activity.duration = time.time() - activity.start
-        #         exception = Exception("unknown error")
-        #         self.failed_jobs[activity.job.name] = exception
-        #         activity.exception = exception
-        #         logger.error("Error running blueprint %s: %s", activity.job.name, e)
 
     def run(self, concurrency: int = 1, **kwargs):
         """Runs the pipeline."""
