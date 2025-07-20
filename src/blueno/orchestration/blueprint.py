@@ -717,7 +717,7 @@ class Blueprint(BaseJob):
 
         dt = get_delta_table(self.table_uri)
 
-        last_optimize = get_last_modified_time(dt, ["OPTIMIZE"])
+        last_optimize = get_last_modified_time(dt, ["OPTIMIZE"]).replace(tzinfo=timezone.utc)
         if last_optimize < prev_schedule:
             logger.info("running compaction on table %s", self.name)
             wp = WriterProperties(compression="ZSTD")
@@ -728,7 +728,7 @@ class Blueprint(BaseJob):
                 self.name,
             )
 
-        last_vacuum = get_last_modified_time(dt, ["VACUUM END"])
+        last_vacuum = get_last_modified_time(dt, ["VACUUM END"]).replace(tzinfo=timezone.utc)
         if last_vacuum < prev_schedule:
             logger.info("running vacuum on table %s", self.name)
             dt = get_delta_table(self.table_uri)
