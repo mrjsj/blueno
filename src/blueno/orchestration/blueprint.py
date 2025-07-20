@@ -712,7 +712,7 @@ class Blueprint(BaseJob):
         last_optimize = last_optimize.replace(tzinfo=timezone.utc)
 
         logger.info(
-            "%s was last optimized %s and the previous schudule is %s",
+            "%s was last optimized %s and the previous schedule is %s",
             self.name,
             last_optimize,
             prev_schedule,
