@@ -51,7 +51,9 @@ def get_delta_table_if_exists(table_uri: str) -> DeltaTable | None:
     return dt
 
 
-def get_last_modified_time(table_or_uri: str | DeltaTable, operations: list[str]) -> datetime:
+def get_last_modified_time(
+    table_or_uri: str | DeltaTable, operations: list[str]
+) -> datetime | None:
     """Retrieves the last modified time of a Delta table.
 
     Args:
@@ -91,7 +93,7 @@ def get_last_modified_time(table_or_uri: str | DeltaTable, operations: list[str]
     if isinstance(table_or_uri, str):
         storage_options = get_storage_options(table_or_uri)
         if not DeltaTable.is_deltatable(table_or_uri, storage_options=storage_options):
-            return datetime(1970, 1, 1)  # Return epoch time if table does not exist
+            return None
 
         dt = DeltaTable(table_or_uri, storage_options=storage_options)
     else:
@@ -104,7 +106,7 @@ def get_last_modified_time(table_or_uri: str | DeltaTable, operations: list[str]
     )
 
     if timestamp is None:
-        return datetime(1970, 1, 1)  # Return epoch time if no timestamp found
+        return None
 
     return datetime.fromtimestamp(timestamp / 1000)
 
@@ -133,7 +135,9 @@ def get_max_column_value(table_or_uri: str | DeltaTable, column_name: str) -> An
             return None
 
     return (
-        pl.scan_delta(table_or_uri, storage_options=storage_options)
+        pl.scan_delta(
+            table_or_uri, storage_options=storage_options if isinstance(table_or_uri, str) else None
+        )
         .select(pl.col(column_name))
         .max()
         .collect()
@@ -165,7 +169,9 @@ def get_min_column_value(table_or_uri: str | DeltaTable, column_name: str) -> An
             return None
 
     return (
-        pl.scan_delta(table_or_uri, storage_options=storage_options)
+        pl.scan_delta(
+            table_or_uri, storage_options=storage_options if isinstance(table_or_uri, str) else None
+        )
         .select(pl.col(column_name))
         .min()
         .collect()
