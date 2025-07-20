@@ -754,36 +754,55 @@ class Blueprint(BaseJob):
                 self.name,
             )
 
+    def get_table_property(self, name: str) -> str | None:
+        """Gets the table property with the given name."""
+        dt = get_delta_table_if_exists(self.table_uri)
+
+        if dt is None:
+            return None
+
+        prop = dt.metadata().configuration.get(name)
+
+        if prop is None:
+            logger.warning(
+                "tried to retrieve a table property with name %s from table %s but it does not exist",
+                name,
+                self.name,
+            )
+
+        return prop
+
+    def set_table_property(self, name: str, value: str):
+        """Sets the table with the given name to the given value."""
+        dt = get_delta_table_if_exists(self.table_uri)
+
+        if dt is None:
+            raise BluenoUserError("Can't set table property if table doesn't exist!")
+
+        if not isinstance(value, str):
+            raise BluenoUserError("Table property value must be a string!")
+
+        dt.alter.set_table_properties(
+            {
+                name: value,
+            },
+            raise_if_not_exists=False,
+        )
+
     @track_step
     def update_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
         if not self.table_uri:
             return
 
-        dt = get_delta_table_if_exists(self.table_uri)
-
-        if dt is None:
-            raise Unreachable("This exception should be unreachable under regular use.")
-
-        dt.alter.set_table_properties(
-            {"blueno.maxUpstreamTimestamp": f"{self._max_upstream_timestamp}"},
-            raise_if_not_exists=False,
-        )
+        self.set_table_property("blueno.maxUpstreamTimestamp", str(self._max_upstream_timestamp))
 
     @track_step
     def get_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
-        dt = get_delta_table_if_exists(self.table_uri)
-
-        if dt is None:
-            logger.debug(
-                "table for %s is not created yet, thus upstream timestamp cannot be determined",
-                self.name,
-            )
-            return 0
-        ts = dt.metadata().configuration.get("blueno.maxUpstreamTimestamp") or 0
+        ts = self.get_table_property("blueno.maxUpstreamTimestamp")
         logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
-        return ts
+        return ts or 0
 
     @track_step
     def needs_refresh(self) -> bool:
@@ -801,9 +820,9 @@ class Blueprint(BaseJob):
         ]
 
         if self.freshness:
-            ts = get_last_modified_time(self.table_uri, tracked_operations).replace(
-                tzinfo=timezone.utc
-            )
+            ts = get_last_modified_time(self.table_uri, tracked_operations) or datetime(1970, 1, 1)
+
+            ts = ts.replace(tzinfo=timezone.utc)
             if ts < datetime.now(timezone.utc) - self.freshness:
                 logger.debug(
                     "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
@@ -824,18 +843,24 @@ class Blueprint(BaseJob):
             job for job in self.depends_on if isinstance(job, Blueprint) and job.format == "delta"
         ]
         if len(table_dependencies) > 0:
-            self._max_upstream_timestamp = int(
-                max(
-                    get_last_modified_time(job.table_uri, tracked_operations)
-                    for job in table_dependencies
-                ).timestamp()
+            max_upstream_timestamp = max(
+                get_last_modified_time(job.table_uri, tracked_operations) or datetime(1970, 1, 1)
+                for job in table_dependencies
             )
 
-            current_upstream_timestamp = int(self.get_upstream_timestamp_table_property())
+            self._max_upstream_timestamp = int(max_upstream_timestamp.timestamp())
 
-            if self._max_upstream_timestamp == current_upstream_timestamp:
+            current_upstream_timestamp = self.get_upstream_timestamp_table_property()
+            logger.info(
+                "upstream was last changed %s was this table was last changed %s",
+                max_upstream_timestamp,
+                datetime.fromtimestamp(current_upstream_timestamp / 1000),
+            )
+
+            if self._max_upstream_timestamp == int(current_upstream_timestamp):
                 logger.info(
-                    "skipped run for %s as its upstream dependents have not changed since last run."
+                    "skipped run for %s as its upstream dependents have not changed since last run.",
+                    self.name,
                 )
                 return False
 
