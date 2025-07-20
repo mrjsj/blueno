@@ -766,7 +766,7 @@ class Blueprint(BaseJob):
                 self.name,
             )
             return 0
-        ts = dt.metadata().configuration.get("blueno.maxUpstreamTimestamp")
+        ts = dt.metadata().configuration.get("blueno.maxUpstreamTimestamp") or 0
         logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
         return ts
 
