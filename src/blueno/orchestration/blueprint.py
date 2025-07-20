@@ -29,6 +29,7 @@ from blueno.exceptions import (
     BluenoUserError,
     GenericBluenoError,
     InvalidJobError,
+    Unreachable,
 )
 from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_step
 from blueno.types import DataFrameType
@@ -691,10 +692,21 @@ class Blueprint(BaseJob):
 
         dt = get_delta_table_if_exists(self.table_uri)
 
+        if dt is None:
+            raise Unreachable("This exception should be unreachable under regular use.")
+
         last_optimize = get_last_modified_time(dt, ["OPTIMIZE"]).replace(tzinfo=timezone.utc)
-        logger.info("%s was last optmized %s and the previous schudule is %s", self.name, last_optimize, prev_schedule)
+        logger.info(
+            "%s was last optmized %s and the previous schudule is %s",
+            self.name,
+            last_optimize,
+            prev_schedule,
+        )
         if last_optimize < prev_schedule:
             logger.info("running compaction on table %s", self.name)
+            if dt is None:
+                raise Unreachable("This exception should be unreachable under regular use.")
+
             wp = WriterProperties(compression="ZSTD")
             dt.optimize.compact(writer_properties=wp)
         else:
@@ -703,10 +715,17 @@ class Blueprint(BaseJob):
                 self.name,
             )
 
+        if dt is None:
+            raise Unreachable("This exception should be unreachable under regular use.")
+
         last_vacuum = get_last_modified_time(dt, ["VACUUM END"]).replace(tzinfo=timezone.utc)
         if last_vacuum < prev_schedule:
             logger.info("running vacuum on table %s", self.name)
             dt = get_delta_table_if_exists(self.table_uri)
+
+            if dt is None:
+                raise Unreachable("This exception should be unreachable under regular use.")
+
             dt.vacuum(dry_run=False)
 
             logger.info("running creating checkpoint on table %s", self.name)
@@ -727,20 +746,29 @@ class Blueprint(BaseJob):
             return
 
         dt = get_delta_table_if_exists(self.table_uri)
-        dt.alter.set_table_properties({"blueno.maxUpstreamTimestamp": f"{self._max_upstream_timestamp}"}, raise_if_not_exists=False)
+
+        if dt is None:
+            raise Unreachable("This exception should be unreachable under regular use.")
+
+        dt.alter.set_table_properties(
+            {"blueno.maxUpstreamTimestamp": f"{self._max_upstream_timestamp}"},
+            raise_if_not_exists=False,
+        )
 
     @track_step
     def get_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
         dt = get_delta_table_if_exists(self.table_uri)
-        
+
         if dt is None:
-            logger.debug("table for %s is not created yet, thus upstream timestamp cannot be determined", self.name)
+            logger.debug(
+                "table for %s is not created yet, thus upstream timestamp cannot be determined",
+                self.name,
+            )
             return 0
         ts = dt.metadata().configuration.get("blueno.maxUpstreamTimestamp")
         logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
         return ts
-
 
     @track_step
     def needs_refresh(self) -> bool:
@@ -758,7 +786,9 @@ class Blueprint(BaseJob):
         ]
 
         if self.freshness:
-            ts = get_last_modified_time(self.table_uri, tracked_operations).replace(tzinfo=timezone.utc)
+            ts = get_last_modified_time(self.table_uri, tracked_operations).replace(
+                tzinfo=timezone.utc
+            )
             if ts < datetime.now(timezone.utc) - self.freshness:
                 logger.debug(
                     "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
@@ -774,16 +804,24 @@ class Blueprint(BaseJob):
                     self.freshness,
                 )
                 return False
-            
-        table_dependencies = [job for job in self.depends_on if isinstance(job, Blueprint) and job.format == "delta"]
-        if len(table_dependencies) > 0:
 
-            self._max_upstream_timestamp = int(max(get_last_modified_time(job.table_uri, tracked_operations) for job in table_dependencies).timestamp())
+        table_dependencies = [
+            job for job in self.depends_on if isinstance(job, Blueprint) and job.format == "delta"
+        ]
+        if len(table_dependencies) > 0:
+            self._max_upstream_timestamp = int(
+                max(
+                    get_last_modified_time(job.table_uri, tracked_operations)
+                    for job in table_dependencies
+                ).timestamp()
+            )
 
             current_upstream_timestamp = int(self.get_upstream_timestamp_table_property())
 
             if self._max_upstream_timestamp == current_upstream_timestamp:
-                logger.info("skipped run for %s as its upstream dependents have not changed since last run.")
+                logger.info(
+                    "skipped run for %s as its upstream dependents have not changed since last run."
+                )
                 return False
 
         return True
