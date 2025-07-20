@@ -257,9 +257,9 @@ class Blueprint(BaseJob):
             (
                 self.freshness is not None
                 and (
-                    not isinstance(self.freshness, timedelta) or self.freshness.total_seconds() <= 0
+                    not isinstance(self.freshness, timedelta) or self.freshness.total_seconds() < 0
                 ),
-                "freshness must be a positive timedelta",
+                "freshness must be a positive timedelta or 0",
             ),
             (
                 "deduplicate" in self.post_transforms
