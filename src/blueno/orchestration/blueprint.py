@@ -5,6 +5,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from functools import cached_property
 from typing import Callable, Dict, List, Optional, Tuple
 
 import polars as pl
@@ -19,7 +20,6 @@ from blueno.etl import (
     apply_soft_delete_flag,
     incremental,
     overwrite,
-    read_delta,
     read_parquet,
     replace_range,
     upsert,
@@ -579,7 +579,18 @@ class Blueprint(BaseJob):
         """A reference to the target table as a dataframe."""
         match self.format:
             case "delta":
-                return read_delta(self.table_uri)
+                dt = get_delta_table_if_exists(self.table_uri)
+                if dt is None:
+                    logger.error(
+                        "No table found for %s at %s. Has it not been materialized yet? Ensure this blueprint is ran before using it in downstream jobs",
+                        self.name,
+                        self.table_uri,
+                    )
+                    raise BluenoUserError(
+                        "No table found for %s at %s. Has it not been materialized yet? Ensure this blueprint is ran before using it in downstream jobs"
+                        % (self.name, self.table_uri)
+                    )
+                return pl.scan_delta(dt)
             case "parquet":
                 return read_parquet(self.table_uri)
             case _:
@@ -818,6 +829,27 @@ class Blueprint(BaseJob):
         logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
         return ts or 0
 
+    @cached_property
+    def last_modified_time(self):
+        """When the table was last refreshed by any of the operations.
+
+        - `CREATE OR REPLACE TABLE`
+        - `WRITE`
+        - `DELETE`
+        - `UPDATE`
+        - `MERGE`
+        - `STREAMING UPDATE`
+        """
+        tracked_operations = [
+            "CREATE OR REPLACE TABLE",
+            "WRITE",
+            "DELETE",
+            "UPDATE",
+            "MERGE",
+            "STREAMING UPDATE",
+        ]
+        return get_last_modified_time(self.table_uri, tracked_operations)
+
     def _find_first_upstream_table_and_unresolved_upstream_dependencies(
         self,
     ) -> Tuple[List[Blueprint], List[BaseJob]]:
@@ -856,21 +888,12 @@ class Blueprint(BaseJob):
         if not self.table_uri:
             return True
 
-        tracked_operations = [
-            "CREATE OR REPLACE TABLE",
-            "WRITE",
-            "DELETE",
-            "UPDATE",
-            "MERGE",
-            "STREAMING UPDATE",
-        ]
-
         if self.freshness is not None:
             if self.freshness.total_seconds() == 0:
                 logger.info("blueprint will be force refreshed as the freshness timedelta is 0.")
                 return True
 
-            ts = get_last_modified_time(self.table_uri, tracked_operations) or datetime(1970, 1, 1)
+            ts = self.last_modified_time or datetime(1970, 1, 1)
 
             ts = ts.replace(tzinfo=timezone.utc)
             if ts > datetime.now(timezone.utc) - self.freshness:
@@ -909,13 +932,9 @@ class Blueprint(BaseJob):
             return True
 
         if len(table_dependencies) > 0:
-            # We could probably store these on the job objects instead of running for each downstream dependency
             timestamps = []
             for table in table_dependencies:
-                ts = get_last_modified_time(
-                    table.table_uri,  # type: ignore[arg-type]
-                    tracked_operations,
-                )
+                ts = table.last_modified_time
                 logger.info(
                     "blueprint %s has an (possibly indirect) upstream dependency on %s with a last refresh timestamp of %s",
                     self.name,
