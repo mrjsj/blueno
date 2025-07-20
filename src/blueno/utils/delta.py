@@ -73,7 +73,7 @@ def get_last_modified_time(table_or_uri: str | DeltaTable, operations: list[str]
         - `ADD FEATURE`
         - `UPDATE FIELD METADATA`
         - `UPDATE TABLE METADATA`
-        
+
     Returns:
         The last modified time of the table, or None if the table does not exist.
 
@@ -96,9 +96,8 @@ def get_last_modified_time(table_or_uri: str | DeltaTable, operations: list[str]
 
     metadata = dt.history()
     timestamp = next(
-        commit.get("timestamp")
-        for commit in metadata
-        if commit.get("operation") in operations
+        (commit.get("timestamp") for commit in metadata if commit.get("operation") in operations),
+        None,
     )
 
     if timestamp is None:
