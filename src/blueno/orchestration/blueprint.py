@@ -62,6 +62,7 @@ class Blueprint(BaseJob):
     _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
     _preview: bool = False
+    _max_upstream_timestamp: int = -1
 
     @override
     @classmethod
@@ -723,7 +724,7 @@ class Blueprint(BaseJob):
     def update_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
         dt = get_delta_table(self.table_uri)        
-        dt.alter.set_table_properties({"blueno.maxUpstreamTimestamp": f"{self.max_upstream_timestamp}"}, raise_if_not_exists=False)
+        dt.alter.set_table_properties({"blueno.maxUpstreamTimestamp": f"{self._max_upstream_timestamp}"}, raise_if_not_exists=False)
 
     @track_step
     def get_upstream_timestamp_table_property(self):
@@ -767,11 +768,11 @@ class Blueprint(BaseJob):
         table_dependencies = [job for job in self.depends_on if isinstance(job, Blueprint) and job.format == "delta"]
         if len(table_dependencies) > 0:
 
-            self.max_upstream_timestamp = int(max(get_last_modified_time(job.table_uri, tracked_operations) for job in table_dependencies).timestamp())
+            self._max_upstream_timestamp = int(max(get_last_modified_time(job.table_uri, tracked_operations) for job in table_dependencies).timestamp())
 
             current_upstream_timestamp = int(self.get_upstream_timestamp_table_property() or 0)
 
-            if self.max_upstream_timestamp == current_upstream_timestamp:
+            if self._max_upstream_timestamp == current_upstream_timestamp:
                 logger.info("skipped run for %s as its upstream dependents have not changed since last run.")
                 return False
 
