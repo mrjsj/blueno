@@ -39,7 +39,7 @@ def mart_order_items(
             how="left",
         )
         .select(
-            *stage_order_items.columns,            
+            *stage_order_items.collect_schema().names(),            
             "product_name",
             "product_price",
             "is_food_item",
