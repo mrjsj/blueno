@@ -3,7 +3,7 @@
 from blueno.utils.misc import quote_identifier, remove_none, separator_indices, shorten_dict_values
 
 from .delta import (
-    get_delta_table,
+    get_delta_table_if_exists,
     get_last_modified_time,
     get_max_column_value,
     get_min_column_value,
@@ -19,7 +19,7 @@ from .string_normalization import character_translation, to_snake_case
 __all__ = (
     "get_last_modified_time",
     "get_or_create_delta_table",
-    "get_delta_table",
+    "get_delta_table_if_exists",
     "separator_indices",
     "quote_identifier",
     "to_snake_case",

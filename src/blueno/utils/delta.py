@@ -32,8 +32,8 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
     return dt
 
 
-def get_delta_table(table_uri: str) -> DeltaTable:
-    """Retrieves a Delta table. Raises exception if table does not exist.
+def get_delta_table_if_exists(table_uri: str) -> DeltaTable:
+    """Retrieves a Delta table. Returns None if not exists.
 
     Args:
         table_uri: The URI of the Delta table.
@@ -42,6 +42,9 @@ def get_delta_table(table_uri: str) -> DeltaTable:
         The Delta table.
     """
     storage_options = get_storage_options(table_uri)
+
+    if not DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
+        return None
 
     dt = DeltaTable(table_uri, storage_options=storage_options)
 
