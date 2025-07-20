@@ -139,13 +139,13 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         overwrite("path/to/overwrite_delta_table", data)
         ```
     """
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
     else:
         dt = table_or_uri
-
-    if isinstance(df, pl.LazyFrame):
-        df = df.collect()
 
     df = df.to_arrow()
 
@@ -153,6 +153,7 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         table_or_uri=dt,
         data=df,
         mode="overwrite",
+        schema_mode="overwrite",
     )
 
 
@@ -181,11 +182,6 @@ def replace_range(
         replace_range("path/to/replace_range_delta_table", data, range_column="date")
         ```
     """
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
-    else:
-        dt = table_or_uri
-
     if isinstance(df, pl.LazyFrame):
         min_value, max_value = (
             df.select(
@@ -209,6 +205,11 @@ def replace_range(
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
 
+    if isinstance(table_or_uri, str):
+        dt = get_or_create_delta_table(table_or_uri, df.schema)
+    else:
+        dt = table_or_uri
+
     df = df.to_arrow()
 
     if df.num_rows == 0:
@@ -230,6 +231,7 @@ def replace_range(
         data=df,
         mode="overwrite",
         predicate=predicate,
+        schema_mode="merge",
     )
 
 
@@ -252,21 +254,17 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         append("path/to/append_delta_table", data)
         ```
     """
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
     else:
         dt = table_or_uri
 
-    if isinstance(df, pl.LazyFrame):
-        df = df.collect()
-
     df = df.to_arrow()
 
-    write_deltalake(
-        table_or_uri=dt,
-        data=df,
-        mode="append",
-    )
+    write_deltalake(table_or_uri=dt, data=df, mode="append", schema_mode="merge")
 
 
 def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_column: str) -> None:
@@ -298,7 +296,7 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
     else:
         dt = table_or_uri
 
-    max_value = get_max_column_value(table_or_uri, incremental_column)
+    max_value = get_max_column_value(dt, incremental_column)
 
     if max_value is not None:
         df = df.filter(pl.col(incremental_column) > max_value)
@@ -312,6 +310,7 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
         table_or_uri=dt,
         data=df,
         mode="append",
+        schema_mode="merge",
     )
 
 
