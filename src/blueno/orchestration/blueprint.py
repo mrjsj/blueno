@@ -700,9 +700,19 @@ class Blueprint(BaseJob):
         if dt is None:
             raise Unreachable("This exception should be unreachable under regular use.")
 
-        last_optimize = get_last_modified_time(dt, ["OPTIMIZE"]).replace(tzinfo=timezone.utc)
+        last_optimize = get_last_modified_time(dt, ["OPTIMIZE"])
+        if last_optimize is None:
+            last_optimize = self.get_table_property("blueno.lastMaintenanceTimestamp")
+
+            if last_optimize is None:
+                last_optimize = datetime(1970, 1, 1)
+            else:
+                last_optimize = datetime.fromtimestamp(int(last_optimize) / 1000, tz=timezone.utc)
+
+        last_optimize = last_optimize.replace(tzinfo=timezone.utc)
+
         logger.info(
-            "%s was last optmized %s and the previous schudule is %s",
+            "%s was last optimized %s and the previous schudule is %s",
             self.name,
             last_optimize,
             prev_schedule,
