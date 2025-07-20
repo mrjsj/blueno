@@ -864,6 +864,10 @@ class Blueprint(BaseJob):
                 )
                 return False
 
+        logger.info(
+            "table for blueprint %s has no dependencies and no freshness schedule, so it will always be refreshed",
+            self.name,
+        )
         return True
 
     @override
