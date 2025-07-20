@@ -937,7 +937,7 @@ class Blueprint(BaseJob):
 
             if self._max_upstream_timestamp == int(current_upstream_timestamp):
                 logger.info(
-                    "skipped run for %s as its upstream dependents have not changed since last run - if you want to force a refresh you can set the `freshness=timedelta(minutes=0)` on the blueprint.",
+                    "skipped run for %s as its upstream dependents have not changed since last run - if you want to force a refresh you can set the `freshness=timedelta(milliseconds=1)` on the blueprint.",
                     self.name,
                 )
                 return False
