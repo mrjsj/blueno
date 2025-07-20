@@ -865,18 +865,15 @@ class Blueprint(BaseJob):
             "STREAMING UPDATE",
         ]
 
-        if self.freshness:
+        if self.freshness is not None:
+            if self.freshness.total_seconds() == 0:
+                logger.info("blueprint will be force refreshed as the freshness timedelta is 0.")
+                return True
+
             ts = get_last_modified_time(self.table_uri, tracked_operations) or datetime(1970, 1, 1)
 
             ts = ts.replace(tzinfo=timezone.utc)
-            if ts < datetime.now(timezone.utc) - self.freshness:
-                logger.debug(
-                    "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
-                    self.name,
-                    ts,
-                    self.freshness,
-                )
-            else:
+            if ts > datetime.now(timezone.utc) - self.freshness:
                 logger.debug(
                     "blueprint %s is fresh - last modified time is %s, freshness threshold is %s",
                     self.name,
@@ -884,6 +881,13 @@ class Blueprint(BaseJob):
                     self.freshness,
                 )
                 return False
+
+            logger.debug(
+                "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
+                self.name,
+                ts,
+                self.freshness,
+            )
 
         if len(self.depends_on) == 0:
             logger.info(
