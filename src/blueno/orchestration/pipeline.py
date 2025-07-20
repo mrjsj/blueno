@@ -201,7 +201,7 @@ class Pipeline:
                     activity.duration = time.time() - activity.start
                     self.failed_jobs[activity.job.name] = e
                     activity.exception = e
-                    logger.error("Error running blueprint %s: %s", activity.job.name, e)
+                    logger.error("Error running blueprint %s: %s", activity.job.name, e, exc_info=e)
 
                 self._update_activities()
                 self._update_activities_status()
