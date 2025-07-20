@@ -32,7 +32,7 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
     return dt
 
 
-def get_delta_table_if_exists(table_uri: str) -> DeltaTable:
+def get_delta_table_if_exists(table_uri: str) -> DeltaTable | None:
     """Retrieves a Delta table. Returns None if not exists.
 
     Args:
