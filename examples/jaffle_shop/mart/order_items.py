@@ -4,7 +4,8 @@ import polars.selectors as cs
 
 @Blueprint.register(
     table_uri="jaffle_shop/mart/order_items",
-    format="delta"
+    format="delta",
+    maintenance_schedule="0 0 * * *",
 )
 def mart_order_items(
     stage_order_items: DataFrameType,
