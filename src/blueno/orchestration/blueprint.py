@@ -33,7 +33,7 @@ from blueno.exceptions import (
 from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_step
 from blueno.types import DataFrameType
 from blueno.utils import (
-    get_delta_table,
+    get_delta_table_if_exists,
     get_last_modified_time,
     get_max_column_value,
     get_or_create_delta_table,
@@ -689,7 +689,7 @@ class Blueprint(BaseJob):
 
         prev_schedule = croniter(self.maintenance_schedule, execution_time).get_prev(datetime)
 
-        dt = get_delta_table(self.table_uri)
+        dt = get_delta_table_if_exists(self.table_uri)
 
         last_optimize = get_last_modified_time(dt, ["OPTIMIZE"]).replace(tzinfo=timezone.utc)
         logger.info("%s was last optmized %s and the previous schudule is %s", self.name, last_optimize, prev_schedule)
@@ -706,7 +706,7 @@ class Blueprint(BaseJob):
         last_vacuum = get_last_modified_time(dt, ["VACUUM END"]).replace(tzinfo=timezone.utc)
         if last_vacuum < prev_schedule:
             logger.info("running vacuum on table %s", self.name)
-            dt = get_delta_table(self.table_uri)
+            dt = get_delta_table_if_exists(self.table_uri)
             dt.vacuum(dry_run=False)
 
             logger.info("running creating checkpoint on table %s", self.name)
@@ -723,21 +723,31 @@ class Blueprint(BaseJob):
     @track_step
     def update_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
-        dt = get_delta_table(self.table_uri)        
+        if not self.table_uri:
+            return
+
+        dt = get_delta_table_if_exists(self.table_uri)
         dt.alter.set_table_properties({"blueno.maxUpstreamTimestamp": f"{self._max_upstream_timestamp}"}, raise_if_not_exists=False)
 
     @track_step
     def get_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
-        dt = get_delta_table(self.table_uri)
+        dt = get_delta_table_if_exists(self.table_uri)
+        
+        if dt is None:
+            logger.debug("table for %s is not created yet, thus upstream timestamp cannot be determined", self.name)
+            return 0
         ts = dt.metadata().configuration.get("blueno.maxUpstreamTimestamp")
         logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
-        return 
+        return ts
 
 
     @track_step
     def needs_refresh(self) -> bool:
         """Checks if the blueprint needs to be refreshed."""
+        if not self.table_uri:
+            return True
+
         tracked_operations = [
             "CREATE OR REPLACE TABLE",
             "WRITE",
@@ -770,7 +780,7 @@ class Blueprint(BaseJob):
 
             self._max_upstream_timestamp = int(max(get_last_modified_time(job.table_uri, tracked_operations) for job in table_dependencies).timestamp())
 
-            current_upstream_timestamp = int(self.get_upstream_timestamp_table_property() or 0)
+            current_upstream_timestamp = int(self.get_upstream_timestamp_table_property())
 
             if self._max_upstream_timestamp == current_upstream_timestamp:
                 logger.info("skipped run for %s as its upstream dependents have not changed since last run.")

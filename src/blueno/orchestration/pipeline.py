@@ -276,7 +276,7 @@ class Pipeline:
                             self.failed_jobs[activity.job.name] = maybe_exception
                             activity.exception = maybe_exception
                             logger.error(
-                                "Error running blueprint %s: %s", activity.job.name, maybe_exception
+                                "Error running blueprint %s: %s", activity.job.name, maybe_exception, exc_info=maybe_exception
                             )
 
                     self._update_activities_status()
