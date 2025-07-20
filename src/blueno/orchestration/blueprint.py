@@ -718,6 +718,7 @@ class Blueprint(BaseJob):
         dt = get_delta_table(self.table_uri)
 
         last_optimize = get_last_modified_time(dt, ["OPTIMIZE"]).replace(tzinfo=timezone.utc)
+        logger.info("%s was last optmized %s and the previous schudule is %s", self.name, last_optimize, prev_schedule)
         if last_optimize < prev_schedule:
             logger.info("running compaction on table %s", self.name)
             wp = WriterProperties(compression="ZSTD")
