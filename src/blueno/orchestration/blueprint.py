@@ -615,33 +615,6 @@ class Blueprint(BaseJob):
     @track_step
     def transform(self) -> None:
         """Runs the transformation."""
-        if self.freshness:
-            tracked_operations = [
-                "CREATE OR REPLACE TABLE",
-                "WRITE",
-                "DELETE",
-                "UPDATE",
-                "MERGE",
-                "STREAMING UPDATE",
-            ]
-            ts = get_last_modified_time(self.table_uri, tracked_operations)
-            if ts < datetime.now(timezone.utc) - self.freshness:
-                logger.debug(
-                    "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
-                    self.name,
-                    ts,
-                    self.freshness,
-                )
-            else:
-                logger.debug(
-                    "blueprint %s is fresh - last modified time is %s, freshness threshold is %s",
-                    self.name,
-                    ts,
-                    self.freshness,
-                )
-                self._dataframe = self.target_df
-                return
-
         sig = inspect.signature(self._fn)
         if "self" in sig.parameters.keys():
             self._dataframe: DataFrameType = self._fn(self, *self._inputs)
@@ -746,6 +719,64 @@ class Blueprint(BaseJob):
                 self.name,
             )
 
+    @track_step
+    def update_upstream_timestamp_table_property(self):
+        """Updates the table property with the max upsteam timestamp."""
+        dt = get_delta_table(self.table_uri)        
+        dt.alter.set_table_properties({"blueno.maxUpstreamTimestamp": f"{self.max_upstream_timestamp}"}, raise_if_not_exists=False)
+
+    @track_step
+    def get_upstream_timestamp_table_property(self):
+        """Updates the table property with the max upsteam timestamp."""
+        dt = get_delta_table(self.table_uri)
+        ts = dt.metadata().configuration.get("blueno.maxUpstreamTimestamp")
+        logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
+        return 
+
+
+    @track_step
+    def needs_refresh(self) -> bool:
+        """Checks if the blueprint needs to be refreshed."""
+        tracked_operations = [
+            "CREATE OR REPLACE TABLE",
+            "WRITE",
+            "DELETE",
+            "UPDATE",
+            "MERGE",
+            "STREAMING UPDATE",
+        ]
+
+        if self.freshness:
+            ts = get_last_modified_time(self.table_uri, tracked_operations).replace(tzinfo=timezone.utc)
+            if ts < datetime.now(timezone.utc) - self.freshness:
+                logger.debug(
+                    "blueprint %s is stale - last modified time is %s, freshness threshold is %s",
+                    self.name,
+                    ts,
+                    self.freshness,
+                )
+            else:
+                logger.debug(
+                    "blueprint %s is fresh - last modified time is %s, freshness threshold is %s",
+                    self.name,
+                    ts,
+                    self.freshness,
+                )
+                return False
+            
+        table_dependencies = [job for job in self.depends_on if isinstance(job, Blueprint) and job.format == "delta"]
+        if len(table_dependencies) > 0:
+
+            self.max_upstream_timestamp = int(max(get_last_modified_time(job.table_uri, tracked_operations) for job in table_dependencies).timestamp())
+
+            current_upstream_timestamp = int(self.get_upstream_timestamp_table_property() or 0)
+
+            if self.max_upstream_timestamp == current_upstream_timestamp:
+                logger.info("skipped run for %s as its upstream dependents have not changed since last run.")
+                return False
+
+        return True
+
     @override
     @track_step
     def free_memory(self):
@@ -757,11 +788,15 @@ class Blueprint(BaseJob):
     @track_step
     def run(self):
         """Runs the job."""
+        if not self.needs_refresh():
+            logger.info("blueprint %s is skipped due to freshness policy", self.name)
+            return
         self.read_sources()
         self.transform()
         self.post_transform()
         self.validate_schema()
         self.write()
+        self.update_upstream_timestamp_table_property()
         self.maintain()
 
     @track_step
