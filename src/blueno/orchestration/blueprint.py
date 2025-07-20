@@ -718,8 +718,8 @@ class Blueprint(BaseJob):
         if dt is None:
             raise Unreachable("This exception should be unreachable under regular use.")
 
-        last_vacuum = get_last_modified_time(dt, ["VACUUM END"]).replace(tzinfo=timezone.utc)
-        if last_vacuum < prev_schedule:
+        # last_optimize = get_last_modified_time(dt, ["VACUUM END"]).replace(tzinfo=timezone.utc)
+        if last_optimize < prev_schedule:
             logger.info("running vacuum on table %s", self.name)
             dt = get_delta_table_if_exists(self.table_uri)
 
