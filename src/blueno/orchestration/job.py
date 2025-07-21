@@ -314,11 +314,13 @@ class JobRegistry:
 
         levels = defaultdict(list)
         for step in self.jobs.values():
-            levels[step.name.split("_")[0]].append(step.name)  # Maybe introduce "layer" prop on BaseJob to include this? Or pick from tags?
+            levels[step.name.split("_")[0]].append(
+                step.name
+            )  # Maybe introduce "layer" prop on BaseJob to include this? Or pick from tags?
 
         for _, node_names in levels.items():
             with dot.subgraph() as s:
-                s.attr(rank='same')
+                s.attr(rank="same")
                 for name in node_names:
                     s.node(name)
 
