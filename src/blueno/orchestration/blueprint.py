@@ -604,7 +604,7 @@ class Blueprint(BaseJob):
         logger.debug("writing %s %s to %s", self.type, self.name, self.format)
 
         if self.format == "dataframe":
-            self._dataframe = self._dataframe.lazy().collect()
+            self._dataframe = self._dataframe.lazy()
             return
 
         if self.format == "parquet":
