@@ -300,6 +300,8 @@ class JobRegistry:
 
         Requires graphviz.
         """
+        from collections import defaultdict
+
         try:
             import graphviz
         except ImportError as e:
@@ -308,9 +310,19 @@ class JobRegistry:
             raise ImportError(msg) from e
 
         dot = graphviz.Digraph()
+        dot.attr(rankdir="LR")  # Alternatively: TB for horizontal layout.
+
+        levels = defaultdict(list)
+        for step in self.jobs.values():
+            levels[step.name.split("_")[0]].append(step.name)  # Maybe introduce "layer" prop on BaseJob to include this? Or pick from tags?
+
+        for _, node_names in levels.items():
+            with dot.subgraph() as s:
+                s.attr(rank='same')
+                for name in node_names:
+                    s.node(name)
 
         for step in self.jobs.values():
-            dot.node(step.name)
             for dep in step.depends_on:
                 dot.edge(dep.name, step.name)
 
