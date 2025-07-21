@@ -620,11 +620,12 @@ class Blueprint(BaseJob):
     @track_step
     def read_sources(self):
         """Reads from sources."""
-        if self._preview:
-            logger.debug("reading sources for preview of %s %s", self.type, self.name)
-            for input in self.depends_on:
-                if hasattr(input, "preview"):
-                    input.preview(show_preview=False, limit=-1)
+        # Currently isn't working properly
+        # if self._preview:
+        #     logger.debug("reading sources for preview of %s %s", self.type, self.name)
+        #     for input in self.depends_on:
+        #         if hasattr(input, "preview"):
+        #             input.preview(show_preview=False, limit=-1)
 
         self._inputs = [
             input.read() if hasattr(input, "read") else input for input in self.depends_on
