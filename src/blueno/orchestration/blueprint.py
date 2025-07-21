@@ -492,16 +492,15 @@ class Blueprint(BaseJob):
             self._is_current_column: pl.lit(True).alias(self._is_current_column),
             self._is_deleted_column: pl.lit(False).alias(self._is_deleted_column),
         }
+        columns = (
+            self._dataframe.columns
+            if isinstance(self._dataframe, pl.DataFrame)
+            else self._dataframe.collect_schema().names()
+        )
         self._dataframe = self._dataframe.with_columns(
             *[
-                col_expr
+                col_expr if col_name not in columns else pl.col(col_name).alias(col_name)
                 for col_name, col_expr in audit_columns.items()
-                if col_name
-                not in (
-                    self._dataframe.columns
-                    if isinstance(self._dataframe, pl.DataFrame)
-                    else self._dataframe.collect_schema().names()
-                )
             ]
         )
 
