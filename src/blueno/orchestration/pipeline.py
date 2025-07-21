@@ -5,6 +5,7 @@ import logging
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from enum import Enum
 from fnmatch import fnmatch
 from functools import lru_cache
@@ -222,7 +223,9 @@ class Pipeline:
         activity.status = ActivityStatus.COMPLETED
         logger.debug("setting status for activity %s to COMPLETED", activity.job.name)
         logger.info(
-            "activity %s completed successfully in %s seconds", activity.job.name, activity.duration
+            "activity %s completed successfully in %s seconds",
+            activity.job.name,
+            round(activity.duration, 3),
         )
 
     def run(self, concurrency: int = 1, **kwargs):
@@ -230,8 +233,15 @@ class Pipeline:
         self._update_activities_status()
         self._update_activities()
 
+        start = time.time()
+        logger.info("pipeline run started %s", datetime.fromtimestamp(start, tz=timezone.utc))
         if concurrency == 1:
             self.run_sequential()
+            logger.info(
+                "pipeline run ended %s after %s seconds",
+                datetime.fromtimestamp(start, tz=timezone.utc),
+                round(time.time() - start, 3),
+            )
             return
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
@@ -257,7 +267,6 @@ class Pipeline:
                         done = [f for f in self._running_activities if f.done()]
                         if done:
                             break
-                        time.sleep(0.1)
 
                     for future in done:
                         activity = self._running_activities.pop(future)
@@ -295,6 +304,12 @@ class Pipeline:
                         future.cancel()
 
                 executor.shutdown(wait=False, cancel_futures=True)
+
+        logger.info(
+            "pipeline run ended %s after %s seconds",
+            datetime.fromtimestamp(start, tz=timezone.utc),
+            round(time.time() - start, 3),
+        )
 
 
 def create_pipeline(
