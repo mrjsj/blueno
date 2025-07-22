@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 from typing import Annotated, Dict, List, Literal, Optional
 
 from cyclopts import App, Group, Parameter
@@ -68,6 +69,7 @@ def run(
         Parameter(help="Show live updates, log output, or no output"),
     ] = "live",
     concurrency: int = 1,
+    force_refresh: bool = False,
     help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
     log_level: Annotated[
         Literal["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -78,10 +80,11 @@ def run(
 
     Args:
         project_dir: Path to the blueprints
-        concurrency: Number of concurrent tasks to run
         select: List of blueprints to run. If not provided, all blueprints will be run
-        select_tags: List of tags to filter on. Should be in the format: `mytag=value`. Same name tags will be treated as OR, and different named tags will be treated as AND. I.e. "color=blue color=red shape=circle" filters on "(color=blue OR color=red) AND shape=circle".
+        select_tags: List of tags to filter on. Should be in the format: `mytag=value`. Same name tags will be treated as OR, and different named tags will be treated as AND. I.e. `color=blue color=red shape=circle` filters on `(color=blue OR color=red) AND shape=circle`.
         display_mode: Show live updates, log output, or no output
+        concurrency: Number of concurrent jobs to run
+        force_refresh: Disregards schedule and freshness checks to force selected jobs to run.
         help: Show this help and exit
         log_level: Log level to use
     """
@@ -99,6 +102,14 @@ def run(
             tag_filters[key] = [val.strip()]
 
     pipeline = create_pipeline(blueprints, name_filters=select, tag_filters=tag_filters)
+
+    # Would like this to be moved somewhere else
+    if force_refresh is True:
+        for activity in pipeline.activities:
+            if hasattr(activity.job, "freshness"):
+                activity.job.freshness = timedelta(minute=0)
+            if hasattr(activity.job, "schedule"):
+                activity.job.schedule = None
 
     if display_mode == "live":
         with _task_display(pipeline, 10):
