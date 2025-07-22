@@ -107,9 +107,9 @@ def run(
     if force_refresh is True:
         for activity in pipeline.activities:
             if hasattr(activity.job, "freshness"):
-                activity.job.freshness = timedelta(minutes=0)
+                activity.job.freshness = timedelta(minutes=0)  # type: ignore[invalid-assignment]
             if hasattr(activity.job, "schedule"):
-                activity.job.schedule = None
+                activity.job.schedule = None  # type: ignore[invalid-assignment]
 
     if display_mode == "live":
         with _task_display(pipeline, 10):
