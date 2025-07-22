@@ -184,29 +184,6 @@ class Pipeline:
     def _has_ready_activities(self) -> bool:
         return any(self._ready_activities)
 
-    def run_sequential(self):
-        """Run activities sequentially."""
-        while self._has_ready_activities or self._running_activities:
-            for activity in self._ready_activities:
-                if not self._can_schedule_activity(activity, 1):
-                    continue
-
-                logger.debug("setting status for activity %s to QUEUED", activity.job.name)
-                activity.status = ActivityStatus.QUEUED
-                try:
-                    self.run_activity(activity)
-                except Exception as e:
-                    logger.debug("setting status for activity %s to FAILED", activity.job.name)
-                    logger.info("activity %s completed in failure", activity.job.name)
-                    activity.status = ActivityStatus.FAILED
-                    activity.duration = time.time() - activity.start
-                    self.failed_jobs[activity.job.name] = e
-                    activity.exception = e
-                    logger.error("Error running blueprint %s: %s", activity.job.name, e, exc_info=e)
-
-                self._update_activities()
-                self._update_activities_status()
-
     def run_activity(self, activity: PipelineActivity, **kwargs):
         """Run a single activity."""
         context = kwargs.pop("context", None)
@@ -235,14 +212,6 @@ class Pipeline:
 
         start = time.time()
         logger.info("pipeline run started %s", datetime.fromtimestamp(start, tz=timezone.utc))
-        if concurrency == 1:
-            self.run_sequential()
-            logger.info(
-                "pipeline run ended %s after %s seconds",
-                datetime.fromtimestamp(start, tz=timezone.utc),
-                round(time.time() - start, 3),
-            )
-            return
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             try:
