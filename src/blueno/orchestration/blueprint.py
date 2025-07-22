@@ -981,7 +981,7 @@ class Blueprint(BaseJob):
                 "upstream was last changed %s and table %s last upstream refresh is %s",
                 max_upstream_timestamp.replace(microsecond=0),
                 self.name,
-                datetime.fromtimestamp(int(current_upstream_timestamp)),
+                datetime.fromtimestamp(int(current_upstream_timestamp), tz=timezone.utc),
             )
 
             if self._max_upstream_timestamp == int(current_upstream_timestamp):
