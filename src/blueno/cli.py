@@ -67,7 +67,6 @@ def run(
         Literal["live", "log", "none"],
         Parameter(help="Show live updates, log output, or no output"),
     ] = "live",
-    show_dag: bool = False,
     concurrency: int = 1,
     help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
     log_level: Annotated[
@@ -82,16 +81,12 @@ def run(
         concurrency: Number of concurrent tasks to run
         select: List of blueprints to run. If not provided, all blueprints will be run
         select_tags: List of tags to filter on. Should be in the format: `mytag=value`. Same name tags will be treated as OR, and different named tags will be treated as AND. I.e. "color=blue color=red shape=circle" filters on "(color=blue OR color=red) AND shape=circle".
-        show_dag: Whether to show the DAG of the blueprints
         display_mode: Show live updates, log output, or no output
         help: Show this help and exit
         log_level: Log level to use
     """
     _setup_logging(log_level, display_mode)
     _prepare_blueprints(project_dir)
-
-    if show_dag:
-        job_registry.render_dag()
 
     blueprints = list(job_registry.jobs.values())
 
@@ -115,6 +110,32 @@ def run(
         import sys
 
         sys.exit(1)
+
+
+@app.command
+def show_dag(
+    project_dir: str,
+    display_mode: Annotated[
+        Literal["log", "none"],
+        Parameter(help="Show live updates, log output, or no output"),
+    ] = "none",
+    help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
+    log_level: Annotated[
+        Literal["DEBUG", "INFO", "WARNING", "ERROR"],
+        Parameter(group=global_args, help="Log level to use"),
+    ] = "INFO",
+):
+    """Shows the DAG (Directed Acyclic Graph) of the blueprints as a graphviz diagram. Requires `graphviz` to run.
+
+    Args:
+        project_dir: Path to the blueprints
+        display_mode: Show live updates, log output, or no output
+        help: Show this help and exit
+        log_level: Log level to use
+    """
+    _setup_logging(log_level, display_mode)
+    _prepare_blueprints(project_dir)
+    job_registry.render_dag()
 
 
 @app.command
