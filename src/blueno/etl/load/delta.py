@@ -64,7 +64,7 @@ def upsert(
     target_columns = [field.name for field in dt.schema().fields]
 
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     merge_predicate = build_merge_predicate(key_columns)
 
@@ -140,7 +140,7 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         ```
     """
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
@@ -203,7 +203,7 @@ def replace_range(
     logger.debug("overwriting with predicate: %s" % predicate)
 
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
@@ -255,7 +255,7 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         ```
     """
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
@@ -302,7 +302,7 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
         df = df.filter(pl.col(incremental_column) > max_value)
 
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     df = df.to_arrow()
 

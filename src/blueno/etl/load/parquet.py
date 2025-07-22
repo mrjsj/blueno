@@ -31,6 +31,6 @@ def write_parquet(uri: str, df: DataFrameType, partition_by: Optional[List[str]]
     storage_options = get_storage_options(uri)
 
     if isinstance(df, pl.LazyFrame):
-        df = df.collect()
+        df = df.collect(engine="streaming")
 
     df.write_parquet(file=uri, partition_by=partition_by, storage_options=storage_options)
