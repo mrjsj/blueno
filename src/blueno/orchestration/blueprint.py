@@ -83,7 +83,7 @@ class Blueprint(BaseJob):
         deduplication_order_columns: Optional[List[str]] = None,
         priority: int = 100,
         max_concurrency: Optional[int] = None,
-        maintenance_schedule: Optional[int] = None,
+        maintenance_schedule: Optional[timedelta] = None,
         freshness: Optional[timedelta] = None,
         **kwargs,
     ):
