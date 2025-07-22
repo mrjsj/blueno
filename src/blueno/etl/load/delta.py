@@ -24,7 +24,7 @@ def upsert(
     key_columns: List[str],
     update_exclusion_columns: Optional[List[str]] = None,
     predicate_exclusion_columns: Optional[List[str]] = None,
-) -> Dict[str, str]:
+) -> Dict[str, str] | None:
     """Updates existing records and inserts new records into a Delta table.
 
     Args:
@@ -102,6 +102,10 @@ def upsert(
             duplicates,
         )
         raise GenericBluenoError(msg % duplicates)
+    
+    if df.num_rows == 0:
+        logger.warning("no rows in source dataframe detected - skipping merge")
+        return
 
     table_merger = (
         dt.merge(
@@ -264,6 +268,10 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
 
     df = df.to_arrow()
 
+    if df.num_rows == 0:
+        logger.warning("no rows in source dataframe detected - skipping append")
+        return
+
     write_deltalake(table_or_uri=dt, data=df, mode="append", schema_mode="merge")
 
 
@@ -305,6 +313,10 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
         df = df.collect(engine="streaming")
 
     df = df.to_arrow()
+
+    if df.num_rows == 0:
+        logger.warning("no rows in source dataframe detected - skipping append")
+        return    
 
     write_deltalake(
         table_or_uri=dt,
