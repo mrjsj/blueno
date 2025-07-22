@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import polars as pl
 from croniter import croniter
-from deltalake import WriterProperties
+from deltalake import DeltaTable, WriterProperties
 from polars.testing import assert_frame_equal
 from typing_extensions import override
 
@@ -35,6 +35,7 @@ from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_s
 from blueno.types import DataFrameType
 from blueno.utils import (
     get_delta_table_if_exists,
+    get_delta_table_or_raise,
     get_last_modified_time,
     get_max_column_value,
     get_or_create_delta_table,
@@ -57,8 +58,9 @@ class Blueprint(BaseJob):
     partition_by: List[str]
     incremental_column: Optional[str] = None
     scd2_column: Optional[str] = None
-    maintenance_schedule: Optional[str] = None
     freshness: Optional[timedelta] = None
+    schedule: Optional[str] = None
+    maintenance_schedule: Optional[str] = None
 
     _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
@@ -83,8 +85,9 @@ class Blueprint(BaseJob):
         deduplication_order_columns: Optional[List[str]] = None,
         priority: int = 100,
         max_concurrency: Optional[int] = None,
-        maintenance_schedule: Optional[timedelta] = None,
         freshness: Optional[timedelta] = None,
+        schedule: Optional[str] = None,
+        maintenance_schedule: Optional[str] = None,
         **kwargs,
     ):
         """Create a decorator for the Blueprint.
@@ -113,13 +116,18 @@ class Blueprint(BaseJob):
                 When set, limits the global concurrency while this blueprint is running.
                 This is useful for blueprints with high CPU or memory requirements. For example, setting max_concurrency=1 ensures this job runs serially, while still allowing other jobs to run in parallel.
                 Higher priority jobs will be scheduled first when concurrent limits are reached.
-            maintenance_schedule: Optional cron style for table maintenance.
-                Table maintenance compacts and vacuums the delta table.
-                If not provided, no maintenance will be executed.
-                See example for how to use this.
             freshness: Optional freshness threshold for the blueprint.
                 Only applicable if the format is `delta`.
                 If set, the blueprint will only be processed if the delta table's last modification time is older than the freshness threshold.
+                E.g., setting this to `timedelta(hours=1)` will ensure this blueprint is only run at most once an hour.
+            schedule: Optional cron style for schedule.
+                If blueno runs at a time in the intervals of the schedule, it will be run. Otherwise it will be skipped.
+                If not provided, blueprint will **always** be executed.
+                Still respects freshness. For instance `* * * * 1-5` will run Monday through Friday.
+            maintenance_schedule: Optional cron style for table maintenance.
+                Table maintenance compacts and vacuums the delta table.
+                If not provided, **no maintenance** will be executed.
+                Maintenance will only run once during a cron interval. Setting this value to `* 0-8 * * 6` will run maintenance on the **first** run on Saturdays between 0 and 8.
             **kwargs: Additional keyword arguments to pass to the blueprint. This is used when extending the blueprint with custom attributes or methods.
 
         **Simple example**
@@ -169,8 +177,12 @@ class Blueprint(BaseJob):
             deduplication_order_columns=["modified_timestamp"],
             priority=110,
             max_concurrency=2,
-            maintenance_schedule="* * 22 6 *",  # Runs maintenance if blueprint is run between 22 and 23 on Saturdays.
-            freshness=timedelta(hours=1),
+            # Will only run if last materialization is more than 1 day ago.
+            freshness=timedelta(days=1),
+            # Runs if blueno runs on Mondays through Fridays - but only once a day at maximum due to `freshness` setting.
+            schedule="* * * * 1-5",
+            # Runs maintenance if blueno is run between 22 and 23 on Saturdays.
+            maintenance_schedule="* 22 * 6 *",
         )
         def gold_customer(self: Blueprint, silver_customer: DataFrameType) -> DataFrameType:
             # Some advanced business logic
@@ -198,6 +210,7 @@ class Blueprint(BaseJob):
                 priority=priority,
                 max_concurrency=max_concurrency,
                 freshness=freshness,
+                schedule=schedule,
                 maintenance_schedule=maintenance_schedule,
                 _fn=func,
                 **kwargs,
@@ -211,7 +224,8 @@ class Blueprint(BaseJob):
     def _input_validations(self) -> List[tuple[bool, str]]:
         def is_valid_cron(expr: str) -> bool:
             try:
-                croniter(expr)
+                cron = croniter(expr)
+                assert len(cron.fields) == 5, "blueno supports 5 column cron expressions only."
                 return True
             except Exception:
                 return False
@@ -276,9 +290,13 @@ class Blueprint(BaseJob):
                 "tags must be a dictionary, and all keys and values must be of type `str`.",
             ),
             (
+                self.schedule is not None and not is_valid_cron(self.schedule),
+                "schedule must be valid cron with exactly 5 columns.",
+            ),
+            (
                 self.maintenance_schedule is not None
                 and not is_valid_cron(self.maintenance_schedule),
-                "maintenance_schedule must be valid cron with exactly 5, 6 or 7 columns.",
+                "maintenance_schedule must be valid cron with exactly 5 columns.",
             ),
             (
                 self.table_uri is not None and self.format == "dataframe",
@@ -597,6 +615,11 @@ class Blueprint(BaseJob):
                 logger.error(msg)
                 raise GenericBluenoError(msg)
 
+    @property
+    def delta_table(self) -> DeltaTable:
+        """The delta table."""
+        return get_delta_table_or_raise(self.table_uri)
+
     @track_step
     def write(self) -> None:
         """Writes to destination."""
@@ -685,6 +708,53 @@ class Blueprint(BaseJob):
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
 
+    def _is_schedule_due(self, schedule: str) -> bool:
+        """Checks if now is in the interval of the schedule."""
+        # If we're not within the schedule we can exit early
+        now = datetime.now(timezone.utc)
+        start_interval = croniter(schedule, now).get_prev(datetime)
+        if (
+            start_interval.year == now.year
+            and start_interval.month == now.month
+            and start_interval.day == now.day
+            and start_interval.hour == now.hour
+            and start_interval.minute == now.minute
+        ):
+            return True
+        return False
+
+    def _needs_maintenance(self):
+        """Checks if a blueprints needs maintenance."""
+        from croniter import croniter
+
+        if not self._is_schedule_due(self.maintenance_schedule):
+            return
+
+        # Otherwise we check when table was last optimized.
+        last_maintained_from_metadata = get_last_modified_time(
+            self.delta_table, ["OPTIMIZE", "VACUUM END"]
+        ) or datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+        last_maintained_table_property = datetime.fromtimestamp(
+            int(self.get_table_property("blueno.lastMaintenanceTimestamp")) / 1000, tz=timezone.utc
+        ) or datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+        last_optimized = max(last_maintained_from_metadata, last_maintained_table_property)
+
+        now = datetime.now(timezone.utc)
+        start_interval = croniter(self.maintenance_schedule, now).get_prev(datetime)
+
+        if last_optimized > start_interval:
+            logger.info(
+                "skipping maintenance for blueprint %s: maintanance schedule is %s and last maintenance was %s",
+                self.name,
+                start_interval,
+                last_optimized,
+            )
+            return False
+
+        return True
+
     @track_step
     def maintain(self):
         """Maintains the delta table."""
@@ -700,84 +770,34 @@ class Blueprint(BaseJob):
             logger.debug("no maintenance as maintenance_schedule is None")
             return
 
-        from croniter import croniter
+        if not self._needs_maintenance():
+            return
 
-        execution_time = datetime.now(timezone.utc)
+        logger.info("running compaction on table %s", self.name)
+        wp = WriterProperties(compression="ZSTD")
+        self.delta_table.optimize.compact(writer_properties=wp)
 
-        prev_schedule = croniter(self.maintenance_schedule, execution_time).get_prev(datetime)
+        logger.info("running vacuum on table %s", self.name)
+        self.delta_table.vacuum(dry_run=False)
 
-        dt = get_delta_table_if_exists(self.table_uri)
+        logger.info("running creating checkpoint on table %s", self.name)
+        self.delta_table.create_checkpoint()
 
-        if dt is None:
-            raise Unreachable("This exception should be unreachable under regular use.")
+        logger.info("running cleanup metadata on table %s", self.name)
+        self.delta_table.cleanup_metadata()
 
-        last_optimize = get_last_modified_time(dt, ["OPTIMIZE"])
+        last_optimize = get_last_modified_time(self.delta_table, ["OPTIMIZE", "VACUUM END"])
+        logger.debug("last optimize is now %s", last_optimize)
+
+        # If the optimize/vacuum was a no-op, we don't actually write a timestamp, so we save a backup table property
         if last_optimize is None:
-            last_optimize = self.get_table_property("blueno.lastMaintenanceTimestamp")
+            last_optimize = datetime.now(timezone.utc)
 
-            if last_optimize is None:
-                last_optimize = datetime(1970, 1, 1)
-            else:
-                last_optimize = datetime.fromtimestamp(int(last_optimize) / 1000, tz=timezone.utc)
-
-        last_optimize = last_optimize.replace(tzinfo=timezone.utc)
-
-        logger.info(
-            "%s was last optimized %s and the previous schedule is %s",
-            self.name,
-            last_optimize,
-            prev_schedule,
+        logger.debug("setting new maintenance timestamp to %s", last_optimize)
+        self.set_table_property(
+            "blueno.lastMaintenanceTimestamp",
+            str(int(last_optimize.timestamp() * 1000)),
         )
-        if last_optimize < prev_schedule:
-            logger.info("running compaction on table %s", self.name)
-            if dt is None:
-                raise Unreachable("This exception should be unreachable under regular use.")
-
-            wp = WriterProperties(compression="ZSTD")
-            dt.optimize.compact(writer_properties=wp)
-        else:
-            logger.debug(
-                "skipping compaction on table %s as the was already compacted within the schedule",
-                self.name,
-            )
-
-        if dt is None:
-            raise Unreachable("This exception should be unreachable under regular use.")
-
-        # last_optimize = get_last_modified_time(dt, ["VACUUM END"]).replace(tzinfo=timezone.utc)
-        if last_optimize < prev_schedule:
-            logger.info("running vacuum on table %s", self.name)
-            dt = get_delta_table_if_exists(self.table_uri)
-
-            if dt is None:
-                raise Unreachable("This exception should be unreachable under regular use.")
-
-            dt.vacuum(dry_run=False)
-
-            logger.info("running creating checkpoint on table %s", self.name)
-            dt.create_checkpoint()
-
-            logger.info("running cleanup metadata on table %s", self.name)
-            dt.cleanup_metadata()
-
-            # If the optimize/vacuum was a no-op, we don't actually write a timestamp, so we save a backup table property
-            last_optimize = get_last_modified_time(dt, ["OPTIMIZE", "VACUUM END"])
-
-            logger.debug("last optimize is now %s", last_optimize)
-
-            if last_optimize is None:
-                last_optimize = datetime.now(timezone.utc)
-                logger.debug("setting new maintenance timestamp to %s", last_optimize)
-                self.set_table_property(
-                    "blueno.lastMaintenanceTimestamp",
-                    str(int(last_optimize.timestamp() * 1000)),
-                )
-
-        else:
-            logger.debug(
-                "skipping vacuum, checkpoint and metadata cleanup on table %s as the table was already maintained within the schedule",
-                self.name,
-            )
 
     def get_table_property(self, name: str) -> str | None:
         """Gets the table property with the given name."""
@@ -814,15 +834,12 @@ class Blueprint(BaseJob):
             raise_if_not_exists=False,
         )
 
-    @track_step
     def update_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
         if not self.table_uri:
             return
-
         self.set_table_property("blueno.maxUpstreamTimestamp", str(self._max_upstream_timestamp))
 
-    @track_step
     def get_upstream_timestamp_table_property(self):
         """Updates the table property with the max upsteam timestamp."""
         ts = self.get_table_property("blueno.maxUpstreamTimestamp")
@@ -888,9 +905,18 @@ class Blueprint(BaseJob):
         if not self.table_uri:
             return True
 
+        if self.schedule is not None and not self._is_schedule_due(self.schedule):
+            logger.info(
+                "blueprint %s is skipped because schedule %s is not due", self.name, self.schedule
+            )
+            return False
+
         if self.freshness is not None:
             if self.freshness.total_seconds() == 0:
-                logger.info("blueprint will be force refreshed as the freshness timedelta is 0.")
+                logger.info(
+                    "blueprint %s will be force refreshed as the freshness timedelta is 0.",
+                    self.name,
+                )
                 return True
 
             ts = self.last_modified_time or datetime(1970, 1, 1)

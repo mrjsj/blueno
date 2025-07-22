@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import polars as pl
@@ -45,6 +45,22 @@ def get_delta_table_if_exists(table_uri: str) -> DeltaTable | None:
 
     if not DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
         return None
+
+    dt = DeltaTable(table_uri, storage_options=storage_options)
+
+    return dt
+
+
+def get_delta_table_or_raise(table_uri: str) -> DeltaTable:
+    """Retrieves a Delta table. Raises exception if not exists.
+
+    Args:
+        table_uri: The URI of the Delta table.
+
+    Returns:
+        The Delta table.
+    """
+    storage_options = get_storage_options(table_uri)
 
     dt = DeltaTable(table_uri, storage_options=storage_options)
 
@@ -108,7 +124,7 @@ def get_last_modified_time(
     if timestamp is None:
         return None
 
-    return datetime.fromtimestamp(timestamp / 1000)
+    return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
 
 
 def get_max_column_value(table_or_uri: str | DeltaTable, column_name: str) -> Any:
