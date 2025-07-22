@@ -107,7 +107,7 @@ def run(
     if force_refresh is True:
         for activity in pipeline.activities:
             if hasattr(activity.job, "freshness"):
-                activity.job.freshness = timedelta(minute=0)
+                activity.job.freshness = timedelta(minutes=0)
             if hasattr(activity.job, "schedule"):
                 activity.job.schedule = None
 
