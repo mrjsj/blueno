@@ -236,6 +236,7 @@ class Pipeline:
                         done = [f for f in self._running_activities if f.done()]
                         if done:
                             break
+                        time.sleep(0.1)
 
                     for future in done:
                         activity = self._running_activities.pop(future)
