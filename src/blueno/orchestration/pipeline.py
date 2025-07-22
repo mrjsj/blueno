@@ -11,6 +11,8 @@ from fnmatch import fnmatch
 from functools import lru_cache
 from typing import Dict, List, Optional
 
+import psutil
+
 from blueno.exceptions import BluenoUserError
 from blueno.orchestration.job import BaseJob
 
@@ -229,6 +231,7 @@ class Pipeline:
                         )
                         self._running_activities[future] = activity
 
+                    last_printed = time.time()
                     while True:
                         # self.benchmark(self._update_activities)
                         self._update_activities()
@@ -237,6 +240,25 @@ class Pipeline:
                         if done:
                             break
                         time.sleep(0.1)
+
+                        if time.time() - last_printed > 2.5:
+                            cpu_percent = psutil.cpu_percent(interval=1)
+                            cpu_cores = psutil.cpu_count(logical=True)
+
+                            virtual_mem = psutil.virtual_memory()
+                            total_mem = virtual_mem.total / (1024**2)
+                            used_mem = virtual_mem.used / (1024**2)
+                            mem_percent = virtual_mem.percent
+
+                            logger.info("cpu usage: %.1f%% across %d cores", cpu_percent, cpu_cores)
+                            logger.info(
+                                "memory Usage: %.2f MB / %.2f MB (%.1f%%)",
+                                used_mem,
+                                total_mem,
+                                mem_percent,
+                            )
+                            last_printed = time.time()
+
 
                     for future in done:
                         activity = self._running_activities.pop(future)
