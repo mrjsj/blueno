@@ -1,5 +1,6 @@
 from blueno import Blueprint, DataFrameType
 import polars as pl
+from datetime import timedelta
 
 
 base_url = "https://dbt-tutorial-public.s3.us-west-2.amazonaws.com/long_term_dataset"
@@ -17,6 +18,9 @@ def raw_customers() -> DataFrameType:
 
 @Blueprint.register(
     table_uri=lakehouse_base_url + "items",
+    freshness=timedelta(hours=1),
+    schedule="* * * * 1-5",
+    maintenance_schedule="* * * * 6-7",
     format="delta",
 )
 def raw_order_items() -> DataFrameType:
