@@ -239,9 +239,9 @@ class Pipeline:
                         done = [f for f in self._running_activities if f.done()]
                         if done:
                             break
-                        time.sleep(0.1)
+                        time.sleep(0.2)
 
-                        if time.time() - last_printed > 2.5:
+                        if time.time() - last_printed > 2:
                             cpu_percent = psutil.cpu_percent(interval=1)
                             cpu_cores = psutil.cpu_count(logical=True)
 
@@ -258,7 +258,6 @@ class Pipeline:
                                 mem_percent,
                             )
                             last_printed = time.time()
-
 
                     for future in done:
                         activity = self._running_activities.pop(future)
