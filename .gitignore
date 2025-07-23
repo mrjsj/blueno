@@ -147,3 +147,5 @@ target_table
 basic_example.parquet
 lakehouse
 data_generator
+jaffle_shop
+contoso
