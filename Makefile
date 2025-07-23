@@ -97,6 +97,34 @@ pr:
 		fi; \
 	done
 
+check-pr:
+	@branch=$$(git symbolic-ref --short HEAD); \
+	while true; do \
+		run=$$(gh run list -b $$branch --limit 1 --json status,conclusion --jq '.[0]'); \
+		status=$$(echo $$run | jq -r '.status'); \
+		conclusion=$$(echo $$run | jq -r '.conclusion'); \
+		if [ "$$status" = "completed" ]; then \
+			if [ "$$conclusion" = "success" ]; then \
+				echo "Workflow succeeded. Merging PR ..."; \
+				git fetch origin; \
+				git rebase origin/main; \
+				git checkout main; \
+				git pull origin main; \
+				git merge $$branch --ff-only; \
+				git push origin main; \
+				git branch -d $$branch; \
+				git push origin --delete $$branch || true; \
+				break; \
+			else \
+				echo "Workflow failed."; \
+				exit 1; \
+			fi; \
+		else \
+			echo "Workflow still running ..."; \
+			sleep 5; \
+		fi; \
+	done	
+
 release:
 	@echo "Current tags:"
 	@git tag | sort -V | tail -n 5
