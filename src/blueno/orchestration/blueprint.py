@@ -493,7 +493,7 @@ class Blueprint(BaseJob):
                 table_or_uri=self.delta_table or self.table_uri,
                 df=self._dataframe,
                 key_columns=self.primary_keys,
-                predicate_exclusion_columns=[self.columns],
+                predicate_exclusion_columns=self.columns,
                 update_exclusion_columns=[self._identity_column, self._created_at_column],
             ),
             "incremental": lambda: incremental(
