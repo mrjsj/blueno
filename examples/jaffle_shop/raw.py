@@ -29,9 +29,14 @@ def raw_order_items() -> DataFrameType:
 
 @Blueprint.register(
     table_uri=lakehouse_base_url + "orders",
+    freshness=timedelta(hours=0),
+    schedule="* * * * 1-5",
+    maintenance_schedule="* * * * 6-7",    
     format="delta",
 )
 def raw_orders() -> DataFrameType:
+    import time
+    time.sleep(5)
     return pl.scan_csv(base_url + "/raw_orders.csv")
 
 

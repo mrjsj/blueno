@@ -4,7 +4,10 @@ import polars as pl
 
 @Blueprint.register(
     table_uri="jaffle_shop/mart/orders",
-    format="delta"
+    format="delta",
+    primary_keys=["order_id"],
+    write_mode="safe_append",
+    incremental_column="ordered_at",
 )
 def mart_orders(
     mart_order_items: DataFrameType,

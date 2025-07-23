@@ -5,6 +5,8 @@ import polars.selectors as cs
 @Blueprint.register(
     table_uri="jaffle_shop/mart/order_items",
     format="delta",
+    primary_keys=["order_item_id"],
+    write_mode="naive_upsert",
     maintenance_schedule="0 0 * * *",
 )
 def mart_order_items(
