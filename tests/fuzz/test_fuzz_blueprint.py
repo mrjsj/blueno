@@ -15,8 +15,10 @@ from blueno.orchestration.blueprint import Blueprint
     write_mode=st.sampled_from(
         [
             "append",
+            "safe_append",
             "overwrite",
             "upsert",
+            "naive_upsert",
             "incremental",
             "replace_range",
             "scd2_by_column",
@@ -30,6 +32,8 @@ from blueno.orchestration.blueprint import Blueprint
     incremental_column=st.one_of(st.none(), st.text(min_size=1), st.lists(st.text(min_size=1), max_size=3)),
     scd2_column=st.one_of(st.none(), st.text(min_size=1), st.lists(st.text(min_size=1), max_size=3)),
     freshness=st.one_of(st.none(), st.timedeltas(), st.integers(), st.text()),
+    schedule=st.one_of(st.just("* * * * *"), st.just("* * * * * *"), st.just("not cron")),
+    maintenance_schedule=st.one_of(st.just("* * * * *"), st.just("* * * * * *"), st.just("not cron")),
     schema=st.one_of(st.none(), st.just(pl.Schema({"a": pl.Int64})), st.just(pl.Schema({"a": pl.String}))),
     post_transforms=st.lists(
         st.sampled_from(
@@ -46,7 +50,7 @@ from blueno.orchestration.blueprint import Blueprint
     ),
 )
 def test_blueprint_register_fuzz(
-    write_mode, format, primary_keys, incremental_column, scd2_column, freshness, post_transforms, deduplication_order_columns, schema
+    write_mode, format, primary_keys, incremental_column, scd2_column, freshness, post_transforms, deduplication_order_columns, schema, schedule, maintenance_schedule
 ):
     # Compose arguments
     kwargs = dict(
@@ -62,6 +66,8 @@ def test_blueprint_register_fuzz(
         format=format,
         freshness=freshness,
         post_transforms=post_transforms,
+        schedule=schedule,
+        maintenance_schedule=maintenance_schedule,
     )
 
     def dummy(self):
