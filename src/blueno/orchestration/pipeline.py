@@ -239,10 +239,10 @@ class Pipeline:
                         done = [f for f in self._running_activities if f.done()]
                         if done:
                             break
-                        time.sleep(0.2)
+                        time.sleep(0.1)
 
                         if time.time() - last_printed > 2:
-                            cpu_percent = psutil.cpu_percent(interval=1)
+                            cpu_percent = psutil.cpu_percent(interval=0)
                             cpu_cores = psutil.cpu_count(logical=True)
 
                             virtual_mem = psutil.virtual_memory()
