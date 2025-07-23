@@ -35,7 +35,6 @@ from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_s
 from blueno.types import DataFrameType
 from blueno.utils import (
     get_delta_table_if_exists,
-    get_delta_table_or_raise,
     get_last_modified_time,
     get_max_column_value,
     get_or_create_delta_table,
@@ -100,12 +99,19 @@ class Blueprint(BaseJob):
                 The name must be unique across all blueprints.
             table_uri: The URI of the target table. If not provided, the blueprint will not be stored as a table.
             schema: The schema of the output dataframe. If provided, transformation function will be validated against this schema.
-            primary_keys: The primary keys of the target table. Is required for `upsert` and `scd2` write_mode.
+            primary_keys: The primary keys of the target table. Is required for `upsert` `naive_upsert` and `scd2_by_column` write_mode.
             partition_by: The columns to partition the of the target table by.
-            incremental_column: The incremental column for the target table. Is required for `incremental` write mode.
+            incremental_column: The incremental column for the target table. Is required for `incremental` and `safe_append` write mode.
             scd2_column: The name of the sequence column used for SCD2. Is required for `scd2_by_column` and `scd2_by_time` write mode.
             write_mode: The write method to use. Defaults to `overwrite`.
-                Options are: `append`, `overwrite`, `upsert`, `incremental`, `replace_range`, and `scd2_by_column`.
+                Options are: `append`, `safe_append`, `overwrite`, `upsert`, `naive_upsert` `incremental`, `replace_range`, and `scd2_by_column`.
+                - `append`: Appends all records from the source dataframe into the target.
+                - `safe_append`: Filters the source dataframe on existing primary keys and `incremental_column` value and then appends.
+                - `upsert`: Updates the target table if there are any changes on existing primary keys, and inserts records with primary keys which doesn't exist in the target table.
+                - `naive_upsert`: Same as upsert, but skips checking for changes and performs a blind update.
+                - `incremental`: Filters the source dataframe on the max value of the `incremental_column` value and then appends.
+                - `replace_range`: Overwrites a range the target table between the minimum and the maximum value of the `incremental_column` value in the source dataframe.
+                - `scd2_by_column`: Performs a SCD2 Type upsert where the validity periods created by the `scd2_column` column.
             format: The format to use. Defaults to `delta`. Options are: `delta`, `parquet`, and `dataframe`. If `dataframe` is used, the blueprint will be stored in memory and not written to a target table.
             tags: A dictionary of tags to apply to the blueprint. This can be used to group related blueprints by tag, and can be used to run a subset of blueprints based on tags.
             post_transforms: Optional list of post-transformation functions to apply after the main transformation. Options are: `deduplicate`, `add_audit_columns`, `add_identity_column`.
@@ -248,12 +254,14 @@ class Blueprint(BaseJob):
                 "table_uri must be supplied when format is 'delta' or 'parquet'",
             ),
             (
-                self.write_mode == "upsert" and not self.primary_keys,
-                "primary_keys must be provided for upsert write_mode",
+                self.write_mode in ("upsert", "naive_upsert", "safe_append")
+                and not self.primary_keys,
+                "primary_keys must be provided for upsert, naive_upsert and safe_append write_mode",
             ),
             (
-                self.write_mode in ("incremental", "replace_range") and not self.incremental_column,
-                "incremental_column must be provided for incremental and replace_range write_mode",
+                self.write_mode in ("incremental", "replace_range", "safe_append")
+                and not self.incremental_column,
+                "incremental_column must be provided for incremental, replace_range and safe_append write_mode",
             ),
             (
                 self.write_mode == "scd2_by_column"
@@ -449,26 +457,54 @@ class Blueprint(BaseJob):
                 .alias(self._updated_at_column)
             )
 
+    def _write_mode_safe_append(self) -> None:
+        if self.delta_table is None:
+            return append(table_or_uri=self.table_uri, df=self._dataframe)
+
+        target = pl.scan_delta(self.delta_table)
+        return append(
+            table_or_uri=self.delta_table,
+            df=self._dataframe.join(
+                other=target,
+                on=self.primary_keys + [self.incremental_column],
+                how="anti",
+            ),
+        )
+
     @property
     def _write_modes(self) -> Dict[str, Callable]:
         """Returns a dictionary of available write methods."""
         return {
-            "append": lambda: append(self.table_uri, self._dataframe),
-            "overwrite": lambda: overwrite(self.table_uri, self._dataframe),
+            "append": lambda: append(
+                table_or_uri=self.delta_table or self.table_uri, df=self._dataframe
+            ),
+            "safe_append": self._write_mode_safe_append,
+            "overwrite": lambda: overwrite(
+                table_or_uri=self.delta_table or self.table_uri, df=self._dataframe
+            ),
             "upsert": lambda: upsert(
-                table_or_uri=self.table_uri,
+                table_or_uri=self.delta_table or self.table_uri,
                 df=self._dataframe,
                 key_columns=self.primary_keys,
                 predicate_exclusion_columns=[self._identity_column, self._created_at_column],
                 update_exclusion_columns=[self._identity_column, self._created_at_column],
             ),
+            "naive_upsert": lambda: upsert(
+                table_or_uri=self.delta_table or self.table_uri,
+                df=self._dataframe,
+                key_columns=self.primary_keys,
+                predicate_exclusion_columns=[self.columns],
+                update_exclusion_columns=[self._identity_column, self._created_at_column],
+            ),
             "incremental": lambda: incremental(
-                self.table_uri, self._dataframe, self.incremental_column
+                table_or_uri=self.delta_table or self.table_uri,
+                df=self._dataframe,
+                incremental_column=self.incremental_column,
             ),
             "replace_range": lambda: replace_range(
-                self.table_uri,
-                self._dataframe,
-                self.incremental_column,
+                table_or_uri=self.delta_table or self.table_uri,
+                df=self._dataframe,
+                range_column=self.incremental_column,
             ),
             **self._extend_write_modes,
         }
@@ -510,11 +546,7 @@ class Blueprint(BaseJob):
             self._is_current_column: pl.lit(True).alias(self._is_current_column),
             self._is_deleted_column: pl.lit(False).alias(self._is_deleted_column),
         }
-        columns = (
-            self._dataframe.columns
-            if isinstance(self._dataframe, pl.DataFrame)
-            else self._dataframe.collect_schema().names()
-        )
+        columns = self.columns
         self._dataframe = self._dataframe.with_columns(
             *[
                 col_expr if col_name not in columns else pl.col(col_name).alias(col_name)
@@ -596,7 +628,7 @@ class Blueprint(BaseJob):
         """A reference to the target table as a dataframe."""
         match self.format:
             case "delta":
-                dt = get_delta_table_if_exists(self.table_uri)
+                dt = self.delta_table or get_delta_table_if_exists(self.table_uri)
                 if dt is None:
                     logger.error(
                         "No table found for %s at %s. Has it not been materialized yet? Ensure this blueprint is ran before using it in downstream jobs",
@@ -616,9 +648,18 @@ class Blueprint(BaseJob):
                 raise GenericBluenoError(msg)
 
     @property
-    def delta_table(self) -> DeltaTable:
+    def columns(self) -> str:
+        """The current columns of the dataframe."""
+        return (
+            self._dataframe.columns
+            if isinstance(self._dataframe, pl.DataFrame)
+            else self._dataframe.collect_schema().names()
+        )
+
+    @cached_property
+    def delta_table(self) -> DeltaTable | None:
         """The delta table."""
-        return get_delta_table_or_raise(self.table_uri)
+        return get_delta_table_if_exists(self.table_uri)
 
     @track_step
     def write(self) -> None:

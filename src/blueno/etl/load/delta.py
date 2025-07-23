@@ -75,7 +75,11 @@ def upsert(
         and column in target_columns
     ]
 
-    new_columns = [column for column in df.columns if column not in target_columns]
+    new_columns = [
+        column
+        for column in df.columns
+        if column not in target_columns + predicate_exclusion_columns
+    ]
 
     when_matched_update_predicates = build_when_matched_update_predicate(
         predicate_update_columns, new_columns
@@ -102,7 +106,7 @@ def upsert(
             duplicates,
         )
         raise GenericBluenoError(msg % duplicates)
-    
+
     if df.num_rows == 0:
         logger.warning("no rows in source dataframe detected - skipping merge")
         return
@@ -116,7 +120,7 @@ def upsert(
             predicate=merge_predicate,
         )
         .when_matched_update(
-            predicate=when_matched_update_predicates, updates=when_matched_update_columns
+            predicate=when_matched_update_predicates or None, updates=when_matched_update_columns
         )
         .when_not_matched_insert_all()
     )
@@ -316,7 +320,7 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
 
     if df.num_rows == 0:
         logger.warning("no rows in source dataframe detected - skipping append")
-        return    
+        return
 
     write_deltalake(
         table_or_uri=dt,
