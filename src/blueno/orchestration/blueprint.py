@@ -656,7 +656,7 @@ class Blueprint(BaseJob):
             else self._dataframe.collect_schema().names()
         )
 
-    @cached_property
+    @property
     def delta_table(self) -> DeltaTable | None:
         """The delta table."""
         return get_delta_table_if_exists(self.table_uri)
