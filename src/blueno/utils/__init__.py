@@ -5,6 +5,7 @@ from blueno.utils.misc import quote_identifier, remove_none, separator_indices, 
 from .delta import (
     get_delta_table_if_exists,
     get_delta_table_or_raise,
+    get_last_commit_property,
     get_last_modified_time,
     get_max_column_value,
     get_min_column_value,
@@ -20,6 +21,7 @@ from .string_normalization import character_translation, to_snake_case
 __all__ = (
     "get_last_modified_time",
     "get_or_create_delta_table",
+    "get_last_commit_property",
     "get_delta_table_if_exists",
     "get_delta_table_or_raise",
     "separator_indices",

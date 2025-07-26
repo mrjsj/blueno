@@ -64,7 +64,7 @@ class Blueprint(BaseJob):
     _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
     _preview: bool = False
-    _max_upstream_timestamp: int = -1
+    _upstream_last_modified_time: int = -1
 
     @override
     @classmethod
@@ -768,29 +768,21 @@ class Blueprint(BaseJob):
         """Checks if a blueprints needs maintenance."""
         from croniter import croniter
 
+        # Check if the the current run is within the maintenance schedule window.
         if not self._is_schedule_due(self.maintenance_schedule):
             return
 
-        # Otherwise we check when table was last optimized.
-        last_maintained_from_metadata = get_last_modified_time(
-            self.delta_table, ["OPTIMIZE", "VACUUM END"]
-        ) or datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-        last_maintained_table_property = datetime.fromtimestamp(
-            int(self.get_table_property("blueno.lastMaintenanceTimestamp")) / 1000, tz=timezone.utc
-        ) or datetime(1970, 1, 1, tzinfo=timezone.utc)
-
-        last_optimized = max(last_maintained_from_metadata, last_maintained_table_property)
-
+        # Check if we already ran maintenance within the maintenance window.
         now = datetime.now(timezone.utc)
         start_interval = croniter(self.maintenance_schedule, now).get_prev(datetime)
+        end_interval = croniter(self.maintenance_schedule, now).get_next(datetime)
 
-        if last_optimized > start_interval:
+        if start_interval <= self.last_maintained_time <= end_interval:
             logger.info(
                 "skipping maintenance for blueprint %s: maintanance schedule is %s and last maintenance was %s",
                 self.name,
                 start_interval,
-                last_optimized,
+                self.last_maintained_time,
             )
             return False
 
@@ -827,21 +819,15 @@ class Blueprint(BaseJob):
         logger.info("running cleanup metadata on table %s", self.name)
         self.delta_table.cleanup_metadata()
 
-        last_optimize = get_last_modified_time(self.delta_table, ["OPTIMIZE", "VACUUM END"])
-        logger.debug("last optimize is now %s", last_optimize)
-
-        # If the optimize/vacuum was a no-op, we don't actually write a timestamp, so we save a backup table property
-        if last_optimize is None:
-            last_optimize = datetime.now(timezone.utc)
-
-        logger.debug("setting new maintenance timestamp to %s", last_optimize)
+        last_optimize = datetime.now(timezone.utc)
+        logger.debug("setting new maintenance timestamp to %s on table", last_optimize, self.name)
         self.set_table_property(
-            "blueno.lastMaintenanceTimestamp",
+            "blueno.lastMaintainedTime",
             str(int(last_optimize.timestamp() * 1000)),
         )
 
     def get_table_property(self, name: str) -> str | None:
-        """Gets the table property with the given name."""
+        """Gets the table property with the given name. Returns None if table doesn't exist, or if table property doesn't exist."""
         dt = get_delta_table_if_exists(self.table_uri)
 
         if dt is None:
@@ -859,7 +845,7 @@ class Blueprint(BaseJob):
         return prop
 
     def set_table_property(self, name: str, value: str):
-        """Sets the table with the given name to the given value."""
+        """Sets the table with the given name to the given value. Raises error if table doesn't exist."""
         dt = get_delta_table_if_exists(self.table_uri)
 
         if dt is None:
@@ -875,20 +861,27 @@ class Blueprint(BaseJob):
             raise_if_not_exists=False,
         )
 
-    def update_upstream_timestamp_table_property(self):
+    def set_upstream_last_modified_time(self):
         """Updates the table property with the max upsteam timestamp."""
-        if not self.table_uri:
+        if self.format != "delta":
             return
-        self.set_table_property("blueno.maxUpstreamTimestamp", str(self._max_upstream_timestamp))
 
-    def get_upstream_timestamp_table_property(self):
+        if self.get_upstream_last_modified_time() == self._upstream_last_modified_time:
+            return
+        self.set_table_property(
+            "blueno.upstreamLastModifiedTime", str(self._upstream_last_modified_time)
+        )
+
+    def get_upstream_last_modified_time(self) -> int:
         """Updates the table property with the max upsteam timestamp."""
-        ts = self.get_table_property("blueno.maxUpstreamTimestamp")
-        logger.debug("read maxUpstreamTimestamp table property for %s with value %s", self.name, ts)
-        return ts or 0
+        ts = self.get_table_property("blueno.upstreamLastModifiedTime")
+        logger.debug(
+            "read upstreamLastModifiedTime table property for %s with value %s", self.name, ts
+        )
+        return int(ts or 0)
 
     @cached_property
-    def last_modified_time(self):
+    def last_modified_time(self) -> datetime:
         """When the table was last refreshed by any of the operations.
 
         - `CREATE OR REPLACE TABLE`
@@ -906,7 +899,30 @@ class Blueprint(BaseJob):
             "MERGE",
             "STREAMING UPDATE",
         ]
-        return get_last_modified_time(self.table_uri, tracked_operations)
+        ts = get_last_modified_time(self.table_uri, tracked_operations)
+        return ts or datetime(1970, 1, 1, tzinfo=timezone.utc)
+
+    @property
+    def last_maintained_time(self) -> datetime:
+        """When the table was last refreshed by any of the operations.
+
+        - `OPTIMIZE`
+        - `VACUUM END`
+        """
+        tracked_operations = [
+            "OPTIMIZE",
+            "VACUUM END",
+        ]
+
+        ts = get_last_modified_time(self.table_uri, tracked_operations)
+
+        # We can usually get the timestamp from the transaction log, however on small tables, optimize/vacuum doesn't write anything to the transaction log,
+        # so we store an extra table property for this check.
+        if ts is None:
+            last_maintained = self.get_table_property("blueno.lastMaintainedTime") or "0"
+            ts = datetime.fromtimestamp(int(last_maintained) / 1000, tz=timezone.utc)
+
+        return ts or datetime(1970, 1, 1, tzinfo=timezone.utc)
 
     def _find_first_upstream_table_and_unresolved_upstream_dependencies(
         self,
@@ -943,7 +959,7 @@ class Blueprint(BaseJob):
     @track_step
     def needs_refresh(self) -> bool:
         """Checks if the blueprint needs to be refreshed."""
-        if not self.table_uri:
+        if self.format != "delta":
             return True
 
         if self.schedule is not None and not self._is_schedule_due(self.schedule):
@@ -960,7 +976,7 @@ class Blueprint(BaseJob):
                 )
                 return True
 
-            ts = self.last_modified_time or datetime(1970, 1, 1)
+            ts = self.last_modified_time
 
             ts = ts.replace(tzinfo=timezone.utc)
             if ts > datetime.now(timezone.utc) - self.freshness:
@@ -992,14 +1008,14 @@ class Blueprint(BaseJob):
 
         if len(non_tables_dependencies) > 0:
             logger.info(
-                "one or more of the blueprint %s dependencies resolves to a non-table so it's not possible to check the last refresh time - the upstream non-table dependencies are %s",
+                "one or more of the blueprint %s dependencies resolves to a non-table and blueno cannot check the last modified time of those dependencies - the upstream non-table dependencies are %s",
                 self.name,
                 ", ".join({dep.name for dep in non_tables_dependencies}),
             )
             return True
 
         if len(table_dependencies) > 0:
-            timestamps = []
+            timestamps: List[datetime] = []
             for table in table_dependencies:
                 ts = table.last_modified_time
                 logger.info(
@@ -1008,24 +1024,21 @@ class Blueprint(BaseJob):
                     table.name,
                     ts,
                 )
-                if ts is not None:
-                    timestamps.append(ts)
+                timestamps.append(ts)
 
-            max_upstream_timestamp = (
-                max(timestamps) if len(timestamps) > 0 else datetime(1970, 1, 1)
-            )
+            max_upstream_last_modified_time = max(timestamps)
 
-            self._max_upstream_timestamp = int(max_upstream_timestamp.timestamp())
+            self._upstream_last_modified_time = int(max_upstream_last_modified_time.timestamp())
 
-            current_upstream_timestamp = self.get_upstream_timestamp_table_property()
+            current_upstream_last_modified_time = self.get_upstream_last_modified_time()
             logger.info(
                 "upstream was last changed %s and table %s last upstream refresh is %s",
-                max_upstream_timestamp.replace(microsecond=0),
+                max_upstream_last_modified_time.replace(microsecond=0),
                 self.name,
-                datetime.fromtimestamp(int(current_upstream_timestamp), tz=timezone.utc),
+                datetime.fromtimestamp(int(current_upstream_last_modified_time), tz=timezone.utc),
             )
 
-            if self._max_upstream_timestamp == int(current_upstream_timestamp):
+            if self._upstream_last_modified_time == current_upstream_last_modified_time:
                 logger.info(
                     "skipped run for %s as its upstream dependents have not changed since last run - if you want to force a refresh you can set the `freshness=timedelta(minutes=0)` on the blueprint.",
                     self.name,
@@ -1033,7 +1046,7 @@ class Blueprint(BaseJob):
                 return False
 
             logger.info(
-                "table for blueprint %s needs to be refreshed as upstream have changed",
+                "table for blueprint %s needs to be refreshed as an upstream has been modified",
                 self.name,
             )
             return True
@@ -1059,7 +1072,7 @@ class Blueprint(BaseJob):
         self.post_transform()
         self.validate_schema()
         self.write()
-        self.update_upstream_timestamp_table_property()
+        self.set_upstream_last_modified_time()
         self.maintain()
 
     @track_step

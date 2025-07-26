@@ -4,7 +4,7 @@ from typing import Annotated, Dict, List, Literal, Optional
 
 from cyclopts import App, Group, Parameter
 
-from blueno import create_pipeline, job_registry
+from blueno import Blueprint, create_pipeline, job_registry
 from blueno.display import _task_display
 from blueno.exceptions import BluenoUserError
 
@@ -159,7 +159,7 @@ def preview(
         Literal["DEBUG", "INFO", "WARNING", "ERROR"],
         Parameter(group=global_args, help="Log level to use"),
     ] = "INFO",
-):
+) -> None:
     """Previews a transformation.
 
     Args:
@@ -178,6 +178,14 @@ def preview(
         msg = "Transformation '%s' not found in the project directory '%s'." % (
             transformation_name,
             project_dir,
+        )
+        logger.error(msg)
+        raise BluenoUserError(msg)
+
+    if not isinstance(blueprint, Blueprint):
+        msg = "Cannot preview '%s' because it's not a transformation of type '%s'." % (
+            transformation_name,
+            type(blueprint),
         )
         logger.error(msg)
         raise BluenoUserError(msg)

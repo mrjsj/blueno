@@ -107,11 +107,9 @@ def get_last_modified_time(
     ```
     """
     if isinstance(table_or_uri, str):
-        storage_options = get_storage_options(table_or_uri)
-        if not DeltaTable.is_deltatable(table_or_uri, storage_options=storage_options):
+        dt = get_delta_table_if_exists(table_or_uri)
+        if not dt:
             return None
-
-        dt = DeltaTable(table_or_uri, storage_options=storage_options)
     else:
         dt = table_or_uri
 
@@ -125,6 +123,47 @@ def get_last_modified_time(
         return None
 
     return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+
+
+def get_last_commit_property(
+    table_or_uri: str | DeltaTable,
+    commit_info_key: str,
+) -> str | None:
+    """Retrieves the last modified time of a Delta table. Returns None if table doesn't exist, or if commit info doesn't exist.
+
+    Args:
+        table_or_uri: A string URI to a Delta table.
+        commit_info_key: The key of the info
+
+    Returns:
+        The value of the key in the Delta table transaction history.
+
+
+    Example:
+    ```python notest
+    from blueno.utils import get_last_modified_time
+
+    last_modified = get_last_commit_info("path/to/delta_table", "timestamp")
+    ```
+    """
+    if isinstance(table_or_uri, str):
+        dt = get_delta_table_if_exists(table_or_uri)
+        if not dt:
+            return None
+    else:
+        dt = table_or_uri
+
+    metadata = dt.history()
+    value = next(
+        (
+            commit.get(commit_info_key)
+            for commit in metadata
+            if commit.get(commit_info_key) is not None
+        ),
+        None,
+    )
+
+    return value
 
 
 def get_max_column_value(table_or_uri: str | DeltaTable, column_name: str) -> Any:
