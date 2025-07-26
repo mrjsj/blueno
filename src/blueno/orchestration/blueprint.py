@@ -768,9 +768,9 @@ class Blueprint(BaseJob):
         """Checks if a blueprints needs maintenance."""
         from croniter import croniter
 
-        # Check if the the current run is within the maintenance schedule window.
-        if not self._is_schedule_due(self.maintenance_schedule):
-            return
+        # # Check if the the current run is within the maintenance schedule window.
+        # if not self._is_schedule_due(self.maintenance_schedule):
+        #     return
 
         # Check if we already ran maintenance within the maintenance window.
         now = datetime.now(timezone.utc)
@@ -793,7 +793,7 @@ class Blueprint(BaseJob):
         """Maintains the delta table."""
         if self.format != "delta":
             logger.debug(
-                "not running maintenance for %s as format for is not delta - got format %s",
+                "not running maintenance for %s as format is not delta - got format %s",
                 self.name,
                 self.format,
             )
