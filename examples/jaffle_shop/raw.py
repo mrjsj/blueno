@@ -19,8 +19,8 @@ def raw_customers() -> DataFrameType:
 @Blueprint.register(
     table_uri=lakehouse_base_url + "items",
     freshness=timedelta(hours=1),
-    schedule="* * * * 1-5",
-    maintenance_schedule="* * * * 6-7",
+    schedule="* * * * 1-7",
+    maintenance_schedule="* * * * 1-7",
     format="delta",
 )
 def raw_order_items() -> DataFrameType:
@@ -30,8 +30,8 @@ def raw_order_items() -> DataFrameType:
 @Blueprint.register(
     table_uri=lakehouse_base_url + "orders",
     freshness=timedelta(hours=0),
-    schedule="* * * * 1-5",
-    maintenance_schedule="* * * * 6-7",    
+    schedule="* * * * 1-7",
+    maintenance_schedule="* * * * 1-7",    
     format="delta",
 )
 def raw_orders() -> DataFrameType:
