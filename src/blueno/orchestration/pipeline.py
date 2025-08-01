@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -216,6 +217,8 @@ class Pipeline:
         start = time.time()
         logger.info("pipeline run started %s", datetime.fromtimestamp(start, tz=timezone.utc))
 
+        process = psutil.Process(os.getpid())
+
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             try:
                 while self._has_ready_activities or self._running_activities:
@@ -232,7 +235,7 @@ class Pipeline:
                         )
                         self._running_activities[future] = activity
 
-                    last_printed = time.time()
+                    last_logged = time.time()
                     while True:
                         # self.benchmark(self._update_activities)
                         self._update_activities()
@@ -242,23 +245,29 @@ class Pipeline:
                             break
                         time.sleep(0.1)
 
-                        if time.time() - last_printed > 2:
+                        if time.time() - last_logged > 1:
+                            process_cpu_percent = process.cpu_percent(interval=0)
                             cpu_percent = psutil.cpu_percent(interval=0)
                             cpu_cores = psutil.cpu_count(logical=True)
 
                             virtual_mem = psutil.virtual_memory()
                             total_mem = virtual_mem.total / (1024**2)
                             used_mem = virtual_mem.used / (1024**2)
-                            mem_percent = virtual_mem.percent
+                            mem_percent = virtual_mem.percent / (1024**2)
 
-                            logger.info("cpu usage: %.1f%% across %d cores", cpu_percent, cpu_cores)
+                            process_mem = process.memory_info().rss / (1024**2)
+
                             logger.info(
-                                "memory Usage: %.2f MB / %.2f MB (%.1f%%)",
+                                "cpu usage: %.1f%% on %d cores (process: %.1f%%), memory usage: %.2f MB / %.2f MB (%.1f%%) (process: %.2f MB)",
+                                cpu_percent,
+                                cpu_cores,
+                                process_cpu_percent,
                                 used_mem,
                                 total_mem,
                                 mem_percent,
+                                process_mem,
                             )
-                            last_printed = time.time()
+                            last_logged = time.time()
 
                     for future in done:
                         activity = self._running_activities.pop(future)
