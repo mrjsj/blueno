@@ -58,7 +58,6 @@ class Blueprint(BaseJob):
     incremental_column: Optional[str] = None
     scd2_column: Optional[str] = None
     freshness: Optional[timedelta] = None
-    schedule: Optional[str] = None
     maintenance_schedule: Optional[str] = None
 
     _inputs: list[BaseJob] = field(default_factory=list)
@@ -749,21 +748,6 @@ class Blueprint(BaseJob):
 
         logger.debug("schema validation passed for %s %s", self.type, self.name)
 
-    def _is_schedule_due(self, schedule: str) -> bool:
-        """Checks if now is in the interval of the schedule."""
-        # If we're not within the schedule we can exit early
-        now = datetime.now(timezone.utc)
-        start_interval = croniter(schedule, now).get_prev(datetime)
-        if (
-            start_interval.year == now.year
-            and start_interval.month == now.month
-            and start_interval.day == now.day
-            and start_interval.hour == now.hour
-            and start_interval.minute == now.minute
-        ):
-            return True
-        return False
-
     def _needs_maintenance(self):
         """Checks if a blueprints needs maintenance."""
         from croniter import croniter
@@ -961,12 +945,6 @@ class Blueprint(BaseJob):
         """Checks if the blueprint needs to be refreshed."""
         if self.format != "delta":
             return True
-
-        if self.schedule is not None and not self._is_schedule_due(self.schedule):
-            logger.info(
-                "blueprint %s is skipped because schedule %s is not due", self.name, self.schedule
-            )
-            return False
 
         if self.freshness is not None:
             if self.freshness.total_seconds() == 0:

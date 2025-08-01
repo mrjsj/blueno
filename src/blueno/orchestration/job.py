@@ -44,6 +44,7 @@ class BaseJob(ABC):
     priority: int
     tags: Dict[str, str]
     max_concurrency: Optional[int] = None
+    schedule: Optional[str] = None
     _current_step: Optional[str] = None
     _fn: Callable[..., DataFrameType]
     _depends_on: Optional[List[BaseJob]] = None

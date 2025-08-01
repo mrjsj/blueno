@@ -12,6 +12,7 @@ from functools import lru_cache
 from typing import Dict, List, Optional
 
 import psutil
+from croniter import croniter
 
 from blueno.exceptions import BluenoUserError
 from blueno.orchestration.job import BaseJob
@@ -303,6 +304,22 @@ class Pipeline:
         )
 
 
+def _is_schedule_due(schedule: str) -> bool:
+    """Checks if now is in the interval of the schedule."""
+    # If we're not within the schedule we can exit early
+    now = datetime.now(timezone.utc)
+    start_interval: datetime = croniter(schedule, now).get_prev(datetime)
+    if (
+        start_interval.year == now.year
+        and start_interval.month == now.month
+        and start_interval.day == now.day
+        and start_interval.hour == now.hour
+        and start_interval.minute == now.minute
+    ):
+        return True
+    return False
+
+
 def create_pipeline(
     jobs: list[BaseJob],
     name_filters: Optional[List[str]] = None,
@@ -477,6 +494,18 @@ def create_pipeline(
                     )
                     activity.status = ActivityStatus.SKIPPED
                     break
+
+    for activity in pipeline.activities:
+        if activity.job.schedule is None:
+            continue
+
+        if not _is_schedule_due(activity.job.schedule):
+            logger.debug(
+                "activity %s was skipped because it's schedule %s is not due",
+                activity.job.name,
+                activity.job.schedule,
+            )
+            activity.status = ActivityStatus.SKIPPED
 
     if all(activity.status is ActivityStatus.SKIPPED for activity in pipeline.activities):
         logger.warning("no jobs matched the provided filters")
