@@ -68,7 +68,7 @@ def get_delta_table_or_raise(table_uri: str) -> DeltaTable:
 
 
 def get_last_modified_time(
-    table_or_uri: str | DeltaTable, operations: list[str]
+    table_or_uri: str | DeltaTable, operations: list[str], limit: int = 50
 ) -> datetime | None:
     """Retrieves the last modified time of a Delta table.
 
@@ -94,6 +94,7 @@ def get_last_modified_time(
         - `ADD FEATURE`
         - `UPDATE FIELD METADATA`
         - `UPDATE TABLE METADATA`
+        limit: The maximum log files to check from. Set to `None` to check entire transaction log. WARNING: This may be costly on tables with many transactions!
 
     Returns:
         The last modified time of the table, or None if the table does not exist.
@@ -113,7 +114,7 @@ def get_last_modified_time(
     else:
         dt = table_or_uri
 
-    metadata = dt.history()
+    metadata = dt.history(limit=limit)
     timestamp = next(
         (commit.get("timestamp") for commit in metadata if commit.get("operation") in operations),
         None,
@@ -128,12 +129,14 @@ def get_last_modified_time(
 def get_last_commit_property(
     table_or_uri: str | DeltaTable,
     commit_info_key: str,
+    limit: int = 50,
 ) -> str | None:
     """Retrieves the last modified time of a Delta table. Returns None if table doesn't exist, or if commit info doesn't exist.
 
     Args:
         table_or_uri: A string URI to a Delta table.
         commit_info_key: The key of the info
+        limit: The maximum log files to check from. Set to `None` to check entire transaction log. WARNING: This may be costly on tables with many transactions!
 
     Returns:
         The value of the key in the Delta table transaction history.
@@ -153,7 +156,7 @@ def get_last_commit_property(
     else:
         dt = table_or_uri
 
-    metadata = dt.history()
+    metadata = dt.history(limit=limit)
     value = next(
         (
             commit.get(commit_info_key)
