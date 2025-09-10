@@ -1,0 +1,66 @@
+id,name,cost,perishable,sku
+SUP-001,compostable cutlery - knife,7,false,JAF-001
+SUP-001,compostable cutlery - knife,7,false,JAF-002
+SUP-001,compostable cutlery - knife,7,false,JAF-003
+SUP-001,compostable cutlery - knife,7,false,JAF-004
+SUP-001,compostable cutlery - knife,7,false,JAF-005
+SUP-002,cutlery - fork,7,false,JAF-001
+SUP-002,cutlery - fork,7,false,JAF-002
+SUP-002,cutlery - fork,7,false,JAF-003
+SUP-002,cutlery - fork,7,false,JAF-004
+SUP-002,cutlery - fork,7,false,JAF-005
+SUP-003,serving boat,11,false,JAF-001
+SUP-003,serving boat,11,false,JAF-002
+SUP-003,serving boat,11,false,JAF-003
+SUP-003,serving boat,11,false,JAF-004
+SUP-003,serving boat,11,false,JAF-005
+SUP-004,napkin,4,false,JAF-001
+SUP-004,napkin,4,false,JAF-002
+SUP-004,napkin,4,false,JAF-003
+SUP-004,napkin,4,false,JAF-004
+SUP-004,napkin,4,false,JAF-005
+SUP-005,16oz compostable clear cup,13,false,BEV-001
+SUP-005,16oz compostable clear cup,13,false,BEV-002
+SUP-005,16oz compostable clear cup,13,false,BEV-003
+SUP-005,16oz compostable clear cup,13,false,BEV-004
+SUP-005,16oz compostable clear cup,13,false,BEV-005
+SUP-006,16oz compostable clear lid,4,false,BEV-001
+SUP-006,16oz compostable clear lid,4,false,BEV-002
+SUP-006,16oz compostable clear lid,4,false,BEV-003
+SUP-006,16oz compostable clear lid,4,false,BEV-004
+SUP-006,16oz compostable clear lid,4,false,BEV-005
+SUP-007,biodegradable straw,13,false,BEV-001
+SUP-007,biodegradable straw,13,false,BEV-002
+SUP-007,biodegradable straw,13,false,BEV-003
+SUP-007,biodegradable straw,13,false,BEV-004
+SUP-007,biodegradable straw,13,false,BEV-005
+SUP-008,chai mix,98,true,BEV-002
+SUP-009,bread,33,true,JAF-001
+SUP-009,bread,33,true,JAF-002
+SUP-009,bread,33,true,JAF-003
+SUP-009,bread,33,true,JAF-004
+SUP-009,bread,33,true,JAF-005
+SUP-010,cheese,20,true,JAF-002
+SUP-010,cheese,20,true,JAF-003
+SUP-010,cheese,20,true,JAF-004
+SUP-010,cheese,20,true,JAF-005
+SUP-011,nutella,46,true,JAF-001
+SUP-012,banana,13,true,JAF-001
+SUP-013,beef stew,169,true,JAF-002
+SUP-014,lamb and pork bratwurst,234,true,JAF-003
+SUP-015,house-pickled cabbage sauerkraut,43,true,JAF-003
+SUP-016,mustard,7,true,JAF-003
+SUP-017,pulled pork,215,true,JAF-004
+SUP-018,pineapple,26,true,JAF-004
+SUP-019,melon,33,true,JAF-005
+SUP-020,minced beef,124,true,JAF-005
+SUP-021,ghost pepper sauce,20,true,JAF-004
+SUP-022,mango,32,true,BEV-001
+SUP-023,tangerine,20,true,BEV-001
+SUP-024,oatmilk,11,true,BEV-002
+SUP-025,whey protein,36,true,BEV-002
+SUP-026,coffee,52,true,BEV-003
+SUP-026,coffee,52,true,BEV-004
+SUP-027,french vanilla syrup,72,true,BEV-003
+SUP-028,kiwi,20,true,BEV-005
+SUP-029,lime,13,true,BEV-005

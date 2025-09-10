@@ -2,8 +2,12 @@ from blueno import Blueprint, DataFrameType
 import polars as pl
 from datetime import timedelta
 
+TEST_LOCAL = True
 
-base_url = "https://dbt-tutorial-public.s3.us-west-2.amazonaws.com/long_term_dataset"
+if TEST_LOCAL:
+    base_url = "examples/jaffle_shop/data"
+else:
+    base_url = "https://dbt-tutorial-public.s3.us-west-2.amazonaws.com/long_term_dataset"
 
 lakehouse_base_url = "jaffle_shop/raw/"
 
@@ -24,7 +28,7 @@ def raw_customers() -> DataFrameType:
     format="delta",
 )
 def raw_order_items() -> DataFrameType:
-    return pl.scan_csv(base_url + "/raw_order_items.csv")
+    return pl.scan_csv(base_url + "/raw_order_items.csv").limit(100)
 
 
 @Blueprint.register(
@@ -36,13 +40,15 @@ def raw_order_items() -> DataFrameType:
 )
 def raw_orders() -> DataFrameType:
     import time
-    time.sleep(5)
+    time.sleep(1)
     return pl.scan_csv(base_url + "/raw_orders.csv")
 
 
 @Blueprint.register(
     table_uri=lakehouse_base_url + "products",
     format="delta",
+    maintenance_schedule="* * * * 1-7",
+
 )
 def raw_products() -> DataFrameType:
     return pl.scan_csv(base_url + "/raw_products.csv")

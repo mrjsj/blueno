@@ -83,7 +83,7 @@ def stage_orders(raw_orders: DataFrameType) -> DataFrameType:
             cents_to_dollars(pl.col("order_total")).alias("order_total"),
 
             # timestamps
-            pl.col("ordered_at").str.to_date("%Y-%m-%d %H:%M:%S").alias("ordered_at"),
+            pl.col("ordered_at").str.to_date("%Y-%m-%dT%H:%M:%S").alias("ordered_at"),
         )
     )
 
