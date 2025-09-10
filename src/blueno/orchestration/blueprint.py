@@ -795,7 +795,7 @@ class Blueprint(BaseJob):
         self.delta_table.optimize.compact(writer_properties=wp)
 
         logger.info("running vacuum on table %s", self.name)
-        self.delta_table.vacuum(dry_run=False)
+        self.delta_table.vacuum(dry_run=False, full=True)
 
         logger.info("running creating checkpoint on table %s", self.name)
         self.delta_table.create_checkpoint()
