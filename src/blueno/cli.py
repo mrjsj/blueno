@@ -202,8 +202,9 @@ def preview(
 @app.command
 def run_remote(
     project_dir: str,
-    workspace_id: str,
+    lakehouse_workspace_id: str,
     lakehouse_id: str,
+    notebook_workspace_id: str,
     notebook_id: str,
     select: Optional[list[str]] = None,
     concurrency: int = 1,
@@ -217,11 +218,13 @@ def run_remote(
     """Run the blueprints in a Microsoft Fabric remote environment.
 
     It uploads the blueprints to the target lakehouse in a temporary folder, and runs the blueprints from a notebook.
+    See `examples/fabric/notebooks/RunBlueprints.ipynb` for example notebook.
 
     Args:
         project_dir: Path to the blueprints
-        workspace_id: The workspace id to use
+        lakehouse_workspace_id: The workspace id of the lakehouse to use
         lakehouse_id: The lakehouse id to use
+        notebook_workspace_id: The workspace of the notebook.
         notebook_id: The notebook id to use
         concurrency: Number of concurrent tasks to run
         v_cores: Number of vCores to use
@@ -241,11 +244,11 @@ def run_remote(
 
     _prepare_blueprints(project_dir)
 
-    destination_folder = f"{project_dir.split('/')[-1]}_{str(uuid.uuid4()).split('-')[0]}"
+    destination_folder = f"{project_dir}_{str(uuid.uuid4()).split('-')[0]}"
 
     upload_folder_contents(
         source_folder=project_dir,
-        workspace_name=workspace_id,
+        workspace_name=lakehouse_workspace_id,
         lakehouse_name=lakehouse_id,
         destination_folder=destination_folder,
     )
@@ -262,7 +265,9 @@ def run_remote(
         },
     }
 
-    run_notebook(workspace_id=workspace_id, notebook_id=notebook_id, execution_data=execution_data)
+    run_notebook(
+        workspace_id=notebook_workspace_id, notebook_id=notebook_id, execution_data=execution_data
+    )
 
 
 def main():
