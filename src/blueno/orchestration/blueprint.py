@@ -711,7 +711,7 @@ class Blueprint(BaseJob):
                 return
             except ModuleNotFoundError:
                 logger.error(
-                    "To use DuckDB with blueno, you must install optional dependency must be installed: `pip install blueno[duckdb]`."
+                    "To use DuckDB with blueno, optional dependency must be installed: `pip install blueno[duckdb]`."
                 )
                 raise ModuleNotFoundError(
                     "To use DuckDB with blueno, optional dependency must be installed: `pip install blueno[duckdb]`."
