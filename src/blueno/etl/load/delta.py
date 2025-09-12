@@ -92,11 +92,9 @@ def upsert(
 
     # TODO: delta-rs doesn't handle duplicates before merging atm, so this check ensure we don't merge with duplicates in the source_df
     # https://github.com/delta-io/delta-rs/issues/2407
-    unique_rows = df.select(key_columns).unique().to_arrow().num_rows
+    unique_rows = df.select(key_columns).unique().select(pl.len()).item()
 
-    df = df.to_arrow()
-
-    duplicates = df.num_rows - unique_rows
+    duplicates = df.select(key_columns).select(pl.len()).item() - unique_rows
 
     if duplicates != 0:
         msg = (
@@ -108,8 +106,8 @@ def upsert(
         )
         raise GenericBluenoError(msg % duplicates)
 
-    if df.num_rows == 0:
-        logger.warning("no rows in source dataframe detected - skipping merge")
+    if df.select(pl.len()).item() == 0:
+        logger.warning("no rows in source dataframe detected - skipping upsert")
         return
 
     table_merger = (
@@ -156,7 +154,9 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
     else:
         dt = table_or_uri
 
-    df = df.to_arrow()
+    if df.select(pl.len()).item() == 0:
+        logger.warning("no rows in source dataframe detected - skipping overwrite")
+        return
 
     write_deltalake(
         table_or_uri=dt,
@@ -219,10 +219,8 @@ def replace_range(
     else:
         dt = table_or_uri
 
-    df = df.to_arrow()
-
-    if df.num_rows == 0:
-        logger.info("the source dataframe is empty - skip writing to %s" % dt.table_uri)
+    if df.select(pl.len()).item() == 0:
+        logger.warning("no rows in source dataframe detected - skipping replace_range")
         return
 
     if min_value is None and max_value is None:
@@ -271,9 +269,7 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
     else:
         dt = table_or_uri
 
-    df = df.to_arrow()
-
-    if df.num_rows == 0:
+    if df.select(pl.len()).item() == 0:
         logger.warning("no rows in source dataframe detected - skipping append")
         return
 
@@ -317,10 +313,8 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
     if isinstance(df, pl.LazyFrame):
         df = df.collect(engine="streaming")
 
-    df = df.to_arrow()
-
-    if df.num_rows == 0:
-        logger.warning("no rows in source dataframe detected - skipping append")
+    if df.select(pl.len()).item() == 0:
+        logger.warning("no rows in source dataframe detected - skipping incremental")
         return
 
     write_deltalake(
