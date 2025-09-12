@@ -75,6 +75,7 @@ class Pipeline:
     # _lock = threading.Lock()
     _running_activities: dict[Future[str], PipelineActivity] = field(default_factory=dict)
     failed_jobs: dict[str, Exception] = field(default_factory=dict)
+    log_resource_usage: bool = False
 
     def _have_all_dependents_completed(self, activity: PipelineActivity) -> bool:
         """Check if all dependents of an activity have completed."""
@@ -245,7 +246,7 @@ class Pipeline:
                             break
                         time.sleep(0.1)
 
-                        if time.time() - last_logged > 1:
+                        if self.log_resource_usage and time.time() - last_logged > 1:
                             process_cpu_percent = process.cpu_percent(interval=0)
                             cpu_percent = psutil.cpu_percent(interval=0)
                             cpu_cores = psutil.cpu_count(logical=True)

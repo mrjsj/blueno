@@ -70,6 +70,7 @@ def run(
     ] = "live",
     concurrency: int = 1,
     force_refresh: bool = False,
+    log_resource_usage: bool = False,
     help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
     log_level: Annotated[
         Literal["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -84,6 +85,7 @@ def run(
         select_tags: List of tags to filter on. Should be in the format: `mytag=value`. Same name tags will be treated as OR, and different named tags will be treated as AND. I.e. `color=blue color=red shape=circle` filters on `(color=blue OR color=red) AND shape=circle`.
         display_mode: Show live updates, log output, or no output
         concurrency: Number of concurrent jobs to run
+        log_resource_usage: If True, cpu and memory usage will be logged at logging level INFO.
         force_refresh: Disregards schedule and freshness checks to force selected jobs to run.
         help: Show this help and exit
         log_level: Log level to use
@@ -102,6 +104,7 @@ def run(
             tag_filters[key] = [val.strip()]
 
     pipeline = create_pipeline(blueprints, name_filters=select, tag_filters=tag_filters)
+    pipeline.log_resource_usage = log_resource_usage
 
     # Would like this to be moved somewhere else
     if force_refresh is True:

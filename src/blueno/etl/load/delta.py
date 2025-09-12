@@ -97,6 +97,7 @@ def upsert(
     df = df.to_arrow()
 
     duplicates = df.num_rows - unique_rows
+
     if duplicates != 0:
         msg = (
             "%s duplicates in source dataframe detected - duplicates are not allowed when upserting"
@@ -148,7 +149,7 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
         ```
     """
     if isinstance(df, pl.LazyFrame):
-        df = df.collect(engine="streaming")
+        df = df.collect()
 
     if isinstance(table_or_uri, str):
         dt = get_or_create_delta_table(table_or_uri, df.schema)
