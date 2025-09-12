@@ -22,12 +22,7 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
     if DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
         dt = DeltaTable(table_uri, storage_options=storage_options)
     else:
-        if isinstance(schema, pl.Schema):
-            arrow_schema = pl.DataFrame(schema=schema).to_arrow().schema
-        else:
-            arrow_schema = schema
-
-        dt = DeltaTable.create(table_uri, arrow_schema, storage_options=storage_options)
+        dt = DeltaTable.create(table_uri, schema, storage_options=storage_options)
 
     return dt
 

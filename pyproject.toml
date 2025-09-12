@@ -28,7 +28,6 @@ dependencies = [
     "polars>1.31.0 ; sys_platform != 'darwin'",
     "polars-lts-cpu>1.31.0 ; sys_platform == 'darwin'",
     "psutil>=7.0.0",
-    "pyarrow>=21.0.0",
     "typing-extensions>=4.14.1",
 ]
 
