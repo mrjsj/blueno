@@ -706,8 +706,16 @@ class Blueprint(BaseJob):
             return
 
         if hasattr(self._dataframe, "pl"):
-            self._dataframe = self._dataframe.pl()
-            return
+            try:
+                self._dataframe = self._dataframe.pl()
+                return
+            except ModuleNotFoundError:
+                logger.error(
+                    "To use DuckDB with blueno, you must install optional dependency must be installed: `pip install blueno[duckdb]`."
+                )
+                raise ModuleNotFoundError(
+                    "To use DuckDB with blueno, optional dependency must be installed: `pip install blueno[duckdb]`."
+                )
 
         msg = "%s %s must return a Polars LazyFrame, DataFrame or a DuckDBPyConnection - got %s"
         logger.error(msg, self.type, self.name, type(self._dataframe))
