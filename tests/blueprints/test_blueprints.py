@@ -133,7 +133,24 @@ def test_blueprint_duplicate_table_uri_raises():
             return pl.DataFrame({"y": [1]})
 
 
-# InvalidJobError
+def test_blueprint_primary_key_nulls_raises():
+    @Blueprint.register(table_uri="/tmp/table_uri", format="delta", primary_keys=["id", "date"])
+    def blueprint():
+        return pl.DataFrame({"id": [1], "date": [None]})
+
+    bp = blueprint
+    with pytest.raises(BluenoUserError, match="NULL"):
+        bp.run()
+
+
+def test_blueprint_primary_key_without_nulls_does_not_raise():
+    @Blueprint.register(table_uri="/tmp/table_uri", format="delta", primary_keys=["id", "date"])
+    def blueprint():
+        return pl.DataFrame({"id": [1], "date": ["2025-01-01"]})
+
+    bp = blueprint
+    bp.run()
+
 
 
 def test_blueprint_transform_and_valid_schema_validation():
