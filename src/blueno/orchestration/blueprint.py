@@ -721,6 +721,23 @@ class Blueprint(BaseJob):
             self._post_transforms[transform]()
 
     @track_step
+    def validate_no_nulls_in_primary_keys(self) -> None:
+        """Validates that primary keys do not contain NULL value."""
+        if len(self.primary_keys) == 0:
+            return
+        
+        null_df = self._dataframe.select(self.primary_keys).null_count().lazy().collect()
+ 
+        for i, col in enumerate(null_df.columns):
+            null_count = null_df.item(0, i)
+            if null_count == 0:
+                continue
+            
+            msg = "blueprint %s contains %s rows with NULL/None value in primary key column %s"
+            logger.error(msg, self.name, null_count, col)
+            raise BluenoUserError(msg % (self.name, null_count, col))
+
+    @track_step
     def validate_schema(self) -> None:
         """Validates the schema."""
         if self.schema is None:
@@ -1047,6 +1064,7 @@ class Blueprint(BaseJob):
             return
         self.read_sources()
         self.transform()
+        self.validate_no_nulls_in_primary_keys()
         self.post_transform()
         self.validate_schema()
         self.write()
