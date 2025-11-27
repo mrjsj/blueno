@@ -193,7 +193,7 @@ requires-dist = [
     { name = "croniter", specifier = ">=6.0.0" },
     { name = "cyclopts", specifier = ">=3.16.1" },
     { name = "deltalake", specifier = ">1.0.0" },
-    { name = "polars", specifier = ">=1.31.0" },
+    { name = "polars", specifier = ">1.31.0" },
     { name = "psutil", specifier = ">=7.0.0" },
     { name = "typing-extensions", specifier = ">=4.14.1" },
 ]
