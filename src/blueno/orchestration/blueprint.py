@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import polars as pl
 from croniter import croniter
-from deltalake import DeltaTable, WriterProperties
+from deltalake import DeltaTable, WriterProperties, PostCommitHookProperties
 from polars.testing import assert_frame_equal
 from typing_extensions import override
 
@@ -61,6 +61,7 @@ class Blueprint(BaseJob):
     maintenance_schedule: Optional[str] = None
     table_properties: Optional[Dict[str, str]] = None
 
+    _delta_table: Optional[DeltaTable] = None
     _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
     _preview: bool = False
@@ -413,7 +414,7 @@ class Blueprint(BaseJob):
             source_df.collect_schema() if isinstance(source_df, pl.LazyFrame) else source_df.schema
         )
 
-        target_dt = get_or_create_delta_table(self.table_uri, schema)
+        target_dt = self.delta_table or get_or_create_delta_table(self.table_uri, schema)
         target_df = pl.scan_delta(target_dt)
 
         self._dataframe = apply_scd_type_2(
@@ -433,7 +434,7 @@ class Blueprint(BaseJob):
             source_df.collect_schema() if isinstance(source_df, pl.LazyFrame) else source_df.schema
         )
 
-        target_dt = get_or_create_delta_table(self.table_uri, schema)
+        target_dt = self.delta_table or get_or_create_delta_table(self.table_uri, schema)
         target_df = pl.scan_delta(target_dt)
 
         self._dataframe = apply_soft_delete_flag(
@@ -518,7 +519,9 @@ class Blueprint(BaseJob):
         return {}
 
     def _post_transform_add_identity_column(self):
-        next_identity_value = (get_max_column_value(self.table_uri, self._identity_column) or 0) + 1
+        next_identity_value = (
+            get_max_column_value(self.delta_table or self.table_uri, self._identity_column) or 0
+        ) + 1
         self._dataframe = self._dataframe.with_row_index(self._identity_column, next_identity_value)
 
     def _post_transform_deduplicate(self):
@@ -631,7 +634,7 @@ class Blueprint(BaseJob):
         """A reference to the target table as a dataframe."""
         match self.format:
             case "delta":
-                dt = self.delta_table or get_delta_table_if_exists(self.table_uri)
+                dt = self.delta_table
                 if dt is None:
                     logger.error(
                         "No table found for %s at %s. Has it not been materialized yet? Ensure this blueprint is ran before using it in downstream jobs",
@@ -662,7 +665,9 @@ class Blueprint(BaseJob):
     @property
     def delta_table(self) -> DeltaTable | None:
         """The delta table."""
-        return get_delta_table_if_exists(self.table_uri)
+        if self._delta_table is None:
+            self._delta_table = get_delta_table_if_exists(self.table_uri)
+        return None
 
     @track_step
     def write(self) -> None:
@@ -737,14 +742,14 @@ class Blueprint(BaseJob):
         """Validates that primary keys do not contain NULL value."""
         if len(self.primary_keys) == 0:
             return
-        
+
         null_df = self._dataframe.select(self.primary_keys).null_count().lazy().collect()
- 
+
         for i, col in enumerate(null_df.columns):
             null_count = null_df.item(0, i)
             if null_count == 0:
                 continue
-            
+
             msg = "blueprint %s contains %s rows with NULL/None value in primary key column %s"
             logger.error(msg, self.name, null_count, col)
             raise BluenoUserError(msg % (self.name, null_count, col))
@@ -823,25 +828,25 @@ class Blueprint(BaseJob):
         wp = WriterProperties(compression="ZSTD")
         self.delta_table.optimize.compact(writer_properties=wp)
 
+        post_commithook_properties = PostCommitHookProperties(
+            create_checkpoint=True, cleanup_expired_logs=True
+        )
         logger.info("running vacuum on table %s", self.name)
-        self.delta_table.vacuum(dry_run=False, full=True)
 
-        logger.info("running creating checkpoint on table %s", self.name)
-        self.delta_table.create_checkpoint()
+        self.delta_table.vacuum(
+            dry_run=False, full=True, post_commithook_properties=post_commithook_properties
+        )
 
-        logger.info("running cleanup metadata on table %s", self.name)
-        self.delta_table.cleanup_metadata()
-
-        last_optimize = datetime.now(timezone.utc)
-        logger.debug("setting new maintenance timestamp to %s on table", last_optimize, self.name)
+        last_maintained = datetime.now(timezone.utc)
+        logger.debug("setting new maintenance timestamp to %s on table", last_maintained, self.name)
         self.set_table_property(
             "blueno.lastMaintainedTime",
-            str(int(last_optimize.timestamp() * 1000)),
+            str(int(last_maintained.timestamp() * 1000)),
         )
 
     def get_table_property(self, name: str) -> str | None:
         """Gets the table property with the given name. Returns None if table doesn't exist, or if table property doesn't exist."""
-        dt = get_delta_table_if_exists(self.table_uri)
+        dt = self.delta_table
 
         if dt is None:
             return None
@@ -859,7 +864,7 @@ class Blueprint(BaseJob):
 
     def set_table_property(self, name: str, value: str):
         """Sets the table with the given name to the given value. Raises error if table doesn't exist."""
-        dt = get_delta_table_if_exists(self.table_uri)
+        dt = self.delta_table
 
         if dt is None:
             raise BluenoUserError("Can't set table property if table doesn't exist!")
@@ -925,28 +930,14 @@ class Blueprint(BaseJob):
             "MERGE",
             "STREAMING UPDATE",
         ]
-        ts = get_last_modified_time(self.table_uri, tracked_operations)
+        ts = get_last_modified_time(self.delta_table or self.table_uri, tracked_operations)
         return ts or datetime(1970, 1, 1, tzinfo=timezone.utc)
 
     @property
     def last_maintained_time(self) -> datetime:
-        """When the table was last refreshed by any of the operations.
-
-        - `OPTIMIZE`
-        - `VACUUM END`
-        """
-        tracked_operations = [
-            "OPTIMIZE",
-            "VACUUM END",
-        ]
-
-        ts = get_last_modified_time(self.table_uri, tracked_operations)
-
-        # We can usually get the timestamp from the transaction log, however on small tables, optimize/vacuum doesn't write anything to the transaction log,
-        # so we store an extra table property for this check.
-        if ts is None:
-            last_maintained = self.get_table_property("blueno.lastMaintainedTime") or "0"
-            ts = datetime.fromtimestamp(int(last_maintained) / 1000, tz=timezone.utc)
+        """When the table was last maintained as of the table property `blueno.lastMaintainedTime`)."""
+        last_maintained = self.get_table_property("blueno.lastMaintainedTime") or "0"
+        ts = datetime.fromtimestamp(int(last_maintained) / 1000, tz=timezone.utc)
 
         return ts or datetime(1970, 1, 1, tzinfo=timezone.utc)
 
