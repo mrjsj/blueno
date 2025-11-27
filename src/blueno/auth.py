@@ -152,9 +152,9 @@ def get_storage_options(table_or_uri: str | DeltaTable) -> dict[str, str]:
                     "getting storage options from environment variables AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET."
                 )
                 storage_options = {
-                    tenant_id: tenant_id,
-                    client_id: client_id,
-                    client_secret: client_secret,
+                    "tenant_id": tenant_id,
+                    "client_id": client_id,
+                    "client_secret": client_secret,
                 }
             else:
                 storage_options = {
