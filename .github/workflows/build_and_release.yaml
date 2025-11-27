@@ -40,7 +40,12 @@ jobs:
     # - name: Install build dependencies
     #   run: |
     #     uv add setuptools wheel build toml
-            
+
+    - name: Debug dirty state
+      run: |
+        echo "Git status before build:"
+        git status --porcelain
+
     - name: Build package
       run: uv build --wheel
 
