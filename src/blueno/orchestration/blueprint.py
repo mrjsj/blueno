@@ -59,6 +59,7 @@ class Blueprint(BaseJob):
     scd2_column: Optional[str] = None
     freshness: Optional[timedelta] = None
     maintenance_schedule: Optional[str] = None
+    table_properties: Optional[Dict[str, str]] = None
 
     _inputs: list[BaseJob] = field(default_factory=list)
     _dataframe: DataFrameType | None = field(init=False, repr=False, default=None)
