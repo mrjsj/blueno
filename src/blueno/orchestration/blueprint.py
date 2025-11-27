@@ -86,6 +86,7 @@ class Blueprint(BaseJob):
         freshness: Optional[timedelta] = None,
         schedule: Optional[str] = None,
         maintenance_schedule: Optional[str] = None,
+        table_properties: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
         """Create a decorator for the Blueprint.
@@ -133,6 +134,7 @@ class Blueprint(BaseJob):
                 Table maintenance compacts and vacuums the delta table.
                 If not provided, **no maintenance** will be executed.
                 Maintenance will only run once during a cron interval. Setting this value to `* 0-8 * * 6` will run maintenance on the **first** run on Saturdays between 0 and 8.
+            table_properties:  Optional table properties to set on the delta table. Table properties are created **after** the write action.
             **kwargs: Additional keyword arguments to pass to the blueprint. This is used when extending the blueprint with custom attributes or methods.
 
         **Simple example**
@@ -217,6 +219,7 @@ class Blueprint(BaseJob):
                 freshness=freshness,
                 schedule=schedule,
                 maintenance_schedule=maintenance_schedule,
+                table_properties=table_properties,
                 _fn=func,
                 **kwargs,
             )
@@ -870,16 +873,29 @@ class Blueprint(BaseJob):
             raise_if_not_exists=False,
         )
 
-    def set_upstream_last_modified_time(self):
-        """Updates the table property with the max upsteam timestamp."""
-        if self.format != "delta":
+
+    def set_table_properties(self):
+        """Sets the table properties."""
+        current_table_properties = self.delta_table.metadata().configuration
+        expected_table_properties = (self.table_properties or {}) | {
+            "blueno.upstreamLastModifiedTime": str(self._upstream_last_modified_time)
+        }
+        new_table_properties = {}
+
+        for table_property_key, table_property_value in expected_table_properties.items():
+            if not isinstance(table_property_value, str):
+                raise BluenoUserError("Table property value must be a string!")
+
+            if (
+                current_table_properties.get(table_property_key) is None
+                or current_table_properties.get(table_property_key) != table_property_value
+            ):
+                new_table_properties[table_property_key] = table_property_value
+
+        if new_table_properties == {}:
             return
 
-        if self.get_upstream_last_modified_time() == self._upstream_last_modified_time:
-            return
-        self.set_table_property(
-            "blueno.upstreamLastModifiedTime", str(self._upstream_last_modified_time)
-        )
+        self.delta_table.alter.set_table_properties(new_table_properties, raise_if_not_exists=False)
 
     def get_upstream_last_modified_time(self) -> int:
         """Updates the table property with the max upsteam timestamp."""
@@ -1076,7 +1092,7 @@ class Blueprint(BaseJob):
         self.post_transform()
         self.validate_schema()
         self.write()
-        self.set_upstream_last_modified_time()
+        self.set_table_properties()
         self.maintain()
 
     @track_step
