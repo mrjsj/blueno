@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import polars as pl
 from croniter import croniter
-from deltalake import DeltaTable, WriterProperties, PostCommitHookProperties
+from deltalake import DeltaTable, PostCommitHookProperties, WriterProperties
 from polars.testing import assert_frame_equal
 from typing_extensions import override
 
@@ -667,7 +667,7 @@ class Blueprint(BaseJob):
         """The delta table."""
         if self._delta_table is None:
             self._delta_table = get_delta_table_if_exists(self.table_uri)
-        return None
+        return self._delta_table
 
     @track_step
     def write(self) -> None:
@@ -742,18 +742,31 @@ class Blueprint(BaseJob):
         """Validates that primary keys do not contain NULL value."""
         if len(self.primary_keys) == 0:
             return
+<<<<<<< Updated upstream
 
+=======
+        
+>>>>>>> Stashed changes
         null_df = self._dataframe.select(self.primary_keys).null_count().lazy().collect()
 
         for i, col in enumerate(null_df.columns):
             null_count = null_df.item(0, i)
             if null_count == 0:
+<<<<<<< Updated upstream
                 continue
 
+=======
+                return
+            
+>>>>>>> Stashed changes
             msg = "blueprint %s contains %s rows with NULL/None value in primary key column %s"
             logger.error(msg, self.name, null_count, col)
             raise BluenoUserError(msg % (self.name, null_count, col))
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
     @track_step
     def validate_schema(self) -> None:
         """Validates the schema."""
@@ -878,7 +891,6 @@ class Blueprint(BaseJob):
             },
             raise_if_not_exists=False,
         )
-
 
     def set_table_properties(self):
         """Sets the table properties."""
@@ -1082,6 +1094,7 @@ class Blueprint(BaseJob):
         self.transform()
         self.validate_no_nulls_in_primary_keys()
         self.post_transform()
+        self.validate_no_nulls_in_primary_keys()
         self.validate_schema()
         self.write()
         self.set_table_properties()
