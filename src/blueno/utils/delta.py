@@ -3,6 +3,7 @@ from typing import Any
 
 import polars as pl
 from deltalake import DeltaTable
+from deltalake.exceptions import TableNotFoundError
 
 from blueno.auth import get_storage_options
 
@@ -19,9 +20,9 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
     """
     storage_options = get_storage_options(table_uri)
 
-    if DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
+    try:
         dt = DeltaTable(table_uri, storage_options=storage_options)
-    else:
+    except TableNotFoundError:
         dt = DeltaTable.create(table_uri, schema, storage_options=storage_options)
 
     return dt
@@ -38,10 +39,10 @@ def get_delta_table_if_exists(table_uri: str) -> DeltaTable | None:
     """
     storage_options = get_storage_options(table_uri)
 
-    if not DeltaTable.is_deltatable(table_uri, storage_options=storage_options):
+    try:
+        dt = DeltaTable(table_uri, storage_options=storage_options)
+    except TableNotFoundError:
         return None
-
-    dt = DeltaTable(table_uri, storage_options=storage_options)
 
     return dt
 
