@@ -881,6 +881,14 @@ class Blueprint(BaseJob):
 
     def set_table_properties(self):
         """Sets the table properties."""
+        if self.format != "delta":
+            logger.debug(
+                "not running set_table_properties for %s as format is not delta - got format %s",
+                self.name,
+                self.format,
+            )
+            return
+
         current_table_properties = self.delta_table.metadata().configuration
         expected_table_properties = (self.table_properties or {}) | {
             "blueno.upstreamLastModifiedTime": str(self._upstream_last_modified_time)
