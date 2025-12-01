@@ -47,8 +47,8 @@ pre-commit:	lint format ty unit-test docs-test docs
 test-jaffle:
 	@{ \
 	  uv run blueno run --project-dir examples/jaffle_shop --concurrency 4; \
-	  cat blueno.log; \
 	  status=$$?; \
+	  cat blueno.log; \
 	  rm -rf jaffle_shop; \
 	  exit $$status; \
 	}
@@ -57,8 +57,8 @@ test-jaffle:
 test-contoso:
 	@{ \
 	  uv run blueno run --project-dir examples/contoso --concurrency 4; \
-	  cat blueno.log; \
 	  status=$$?; \
+	  cat blueno.log; \
 	  rm -rf contoso; \
 	  exit $$status; \
 	}
