@@ -1077,6 +1077,7 @@ class Blueprint(BaseJob):
         """Clears the collected dataframe to free memory."""
         if self.format == "delta":
             self._dataframe = None
+            self._delta_table = None
 
     @override
     @track_step
