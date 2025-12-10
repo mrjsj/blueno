@@ -10,6 +10,7 @@ from blueno.auth import (
 from blueno.orchestration.blueprint import Blueprint
 from blueno.orchestration.job import BaseJob, job_registry
 from blueno.orchestration.pipeline import create_pipeline
+from blueno.orchestration.run_context import run_context
 from blueno.orchestration.task import Task
 from blueno.types import DataFrameType
 
@@ -23,6 +24,7 @@ __all__ = (
     "Task",
     "create_pipeline",
     "job_registry",
+    "run_context",
 )
 
 
