@@ -1,10 +1,9 @@
 import logging
-from datetime import timedelta
 from typing import Annotated, Dict, List, Literal, Optional
 
 from cyclopts import App, Group, Parameter
 
-from blueno import Blueprint, create_pipeline, job_registry
+from blueno import Blueprint, create_pipeline, job_registry, run_context
 from blueno.display import _task_display
 from blueno.exceptions import BluenoUserError
 
@@ -69,6 +68,7 @@ def run(
         Parameter(help="Show live updates, log output, or no output"),
     ] = "live",
     concurrency: int = 1,
+    full_refresh: bool = False,
     force_refresh: bool = False,
     log_resource_usage: bool = False,
     help: Annotated[bool, Parameter(group=global_args, help="Show this help and exit")] = False,
@@ -86,6 +86,7 @@ def run(
         display_mode: Show live updates, log output, or no output
         concurrency: Number of concurrent jobs to run
         log_resource_usage: If True, cpu and memory usage will be logged at logging level INFO.
+        full_refresh: Sets a full refresh in the `blueno.orchestration.run_context` which can be accessed in blueprints to handle incremental logic.
         force_refresh: Disregards schedule and freshness checks to force selected jobs to run.
         help: Show this help and exit
         log_level: Log level to use
@@ -106,13 +107,8 @@ def run(
     pipeline = create_pipeline(blueprints, name_filters=select, tag_filters=tag_filters)
     pipeline.log_resource_usage = log_resource_usage
 
-    # Would like this to be moved somewhere else
-    if force_refresh is True:
-        for activity in pipeline.activities:
-            if hasattr(activity.job, "freshness"):
-                activity.job.freshness = timedelta(minutes=0)  # type: ignore[invalid-assignment]
-            if hasattr(activity.job, "schedule"):
-                activity.job.schedule = None  # type: ignore[invalid-assignment]
+    run_context.force_refresh = force_refresh
+    run_context.full_refresh = full_refresh
 
     if display_mode == "live":
         with _task_display(pipeline, 10):

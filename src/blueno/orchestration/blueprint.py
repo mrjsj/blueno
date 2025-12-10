@@ -32,6 +32,7 @@ from blueno.exceptions import (
     Unreachable,
 )
 from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_step
+from blueno.orchestration.run_context import run_context
 from blueno.types import DataFrameType
 from blueno.utils import (
     get_delta_table_if_exists,
@@ -983,6 +984,13 @@ class Blueprint(BaseJob):
     @track_step
     def needs_refresh(self) -> bool:
         """Checks if the blueprint needs to be refreshed."""
+        if run_context.force_refresh is True:
+            logger.info(
+                "blueprint %s will be force refreshed because `run_context.force_refresh` is True",
+                self.name,
+            )
+            return True
+
         if self.format != "delta":
             return True
 
@@ -1074,7 +1082,7 @@ class Blueprint(BaseJob):
     @override
     @track_step
     def free_memory(self):
-        """Clears the collected dataframe to free memory."""
+        """Clears the collected dataframe to free memory, and free table handle."""
         if self.format == "delta":
             self._dataframe = None
             self._delta_table = None
