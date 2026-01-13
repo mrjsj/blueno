@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Union
 
 import polars as pl
 from deltalake import DeltaTable, write_deltalake
+from deltalake.table import TableMerger
 
 from blueno.exceptions import GenericBluenoError
 from blueno.types import DataFrameType
@@ -63,8 +64,7 @@ def upsert(
 
     target_columns = [field.name for field in dt.schema().fields]
 
-    if isinstance(df, pl.LazyFrame):
-        df = df.collect(engine="streaming")
+    df = df.lazy()
 
     merge_predicate = build_merge_predicate(key_columns)
 
@@ -92,9 +92,9 @@ def upsert(
 
     # TODO: delta-rs doesn't handle duplicates before merging atm, so this check ensure we don't merge with duplicates in the source_df
     # https://github.com/delta-io/delta-rs/issues/2407
-    unique_rows = df.select(key_columns).unique().select(pl.len()).item()
+    unique_rows = df.select(key_columns).unique().select(pl.len()).collect().item()
 
-    duplicates = df.select(key_columns).select(pl.len()).item() - unique_rows
+    duplicates = df.select(key_columns).select(pl.len()).collect().item() - unique_rows
 
     if duplicates != 0:
         msg = (
@@ -106,23 +106,24 @@ def upsert(
         )
         raise GenericBluenoError(msg % duplicates)
 
-    if df.select(pl.len()).item() == 0:
+    if df.select(pl.len()).collect().item() == 0:
         logger.warning("no rows in source dataframe detected - skipping upsert")
         return
 
-    table_merger = (
-        dt.merge(
-            df,
-            source_alias="source",
-            target_alias="target",
-            merge_schema=True,
-            predicate=merge_predicate,
-        )
-        .when_matched_update(
-            predicate=when_matched_update_predicates or None, updates=when_matched_update_columns
-        )
-        .when_not_matched_insert_all()
+    table_merger: TableMerger = df.sink_delta(
+        target=dt,
+        mode="merge",
+        delta_merge_options={
+            "source_alias": "source",
+            "target_alias": "target",
+            "merge_schema": True,
+            "predicate": merge_predicate,
+        },
     )
+
+    table_merger = table_merger.when_matched_update(
+        predicate=when_matched_update_predicates or None, updates=when_matched_update_columns
+    ).when_not_matched_insert_all()
 
     return table_merger.execute()
 
