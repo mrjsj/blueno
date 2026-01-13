@@ -174,7 +174,7 @@ run(project_dir="./blueprints", concurrency=2)
 
 You should see a table with the run status of the blueprints in the DAG similar to the one below.
 
-![quick-start-example](../../assets/blueno-quick-start.gif)
+![quick-start-example](../assets/blueno-quick-start.gif)
  
 ## Result
 
