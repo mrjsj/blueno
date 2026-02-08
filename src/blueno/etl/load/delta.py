@@ -11,8 +11,8 @@ from blueno.utils import (
     build_merge_predicate,
     build_when_matched_update_columns,
     build_when_matched_update_predicate,
+    create_or_alter_delta_table,
     get_max_column_value,
-    get_or_create_delta_table,
     quote_identifier,
 )
 
@@ -56,11 +56,8 @@ def upsert(
     if predicate_exclusion_columns is None:
         predicate_exclusion_columns = []
 
-    if isinstance(table_or_uri, str):
-        schema = df.schema if isinstance(df, pl.DataFrame) else df.collect_schema()
-        dt = get_or_create_delta_table(table_or_uri, schema)
-    else:
-        dt = table_or_uri
+    schema = df.schema if isinstance(df, pl.DataFrame) else df.collect_schema()
+    dt = create_or_alter_delta_table(table_or_uri, schema)
 
     target_columns = [field.name for field in dt.schema().fields]
 
@@ -150,10 +147,7 @@ def overwrite(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
     if isinstance(df, pl.LazyFrame):
         df = df.collect()
 
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
-    else:
-        dt = table_or_uri
+    dt = create_or_alter_delta_table(table_or_uri, df.schema)
 
     if df.select(pl.len()).item() == 0:
         logger.warning("no rows in source dataframe detected - skipping overwrite")
@@ -215,10 +209,7 @@ def replace_range(
     if isinstance(df, pl.LazyFrame):
         df = df.collect(engine="streaming")
 
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
-    else:
-        dt = table_or_uri
+    dt = create_or_alter_delta_table(table_or_uri, df.schema)
 
     if df.select(pl.len()).item() == 0:
         logger.warning("no rows in source dataframe detected - skipping replace_range")
@@ -265,10 +256,7 @@ def append(table_or_uri: str | DeltaTable, df: DataFrameType) -> None:
     if isinstance(df, pl.LazyFrame):
         df = df.collect(engine="streaming")
 
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, df.schema)
-    else:
-        dt = table_or_uri
+    dt = create_or_alter_delta_table(table_or_uri, df.schema)
 
     if df.select(pl.len()).item() == 0:
         logger.warning("no rows in source dataframe detected - skipping append")
@@ -301,10 +289,7 @@ def incremental(table_or_uri: str | DeltaTable, df: DataFrameType, incremental_c
     """
     schema = df.schema if isinstance(df, pl.DataFrame) else df.collect_schema()
 
-    if isinstance(table_or_uri, str):
-        dt = get_or_create_delta_table(table_or_uri, schema)
-    else:
-        dt = table_or_uri
+    dt = create_or_alter_delta_table(table_or_uri, schema)
 
     max_value = get_max_column_value(dt, incremental_column)
 
