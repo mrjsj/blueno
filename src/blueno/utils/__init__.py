@@ -3,6 +3,7 @@
 from blueno.utils.misc import quote_identifier, remove_none, separator_indices, shorten_dict_values
 
 from .delta import (
+    create_or_alter_delta_table,
     get_delta_table_if_exists,
     get_delta_table_or_raise,
     get_last_commit_property,
@@ -24,6 +25,7 @@ __all__ = (
     "get_last_commit_property",
     "get_delta_table_if_exists",
     "get_delta_table_or_raise",
+    "create_or_alter_delta_table",
     "separator_indices",
     "quote_identifier",
     "to_snake_case",

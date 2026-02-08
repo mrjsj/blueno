@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 import polars as pl
-from deltalake import DeltaTable
+from deltalake import DeltaTable, write_deltalake
 from deltalake.exceptions import TableNotFoundError
 
 from blueno.auth import get_storage_options
@@ -24,6 +24,58 @@ def get_or_create_delta_table(table_uri: str, schema: pl.Schema) -> DeltaTable:
         dt = DeltaTable(table_uri, storage_options=storage_options)
     except TableNotFoundError:
         dt = DeltaTable.create(table_uri, schema, storage_options=storage_options)
+
+    return dt
+
+
+def schema_equals(schema: pl.Schema, other: pl.Schema, ignore_column_order: bool) -> bool:
+    """Checks if two DataFrame schemas are equal.
+
+    Args:
+        schema: The one schema two check.
+        other: The other schema to check against.
+        ignore_column_order: Whether to be strict about column order.
+
+    Returns:
+        True if the schemas are equal, otherwise False.
+    """
+    left = pl.DataFrame(schema=pl.Schema(schema))
+    right = pl.DataFrame(schema=pl.Schema(other))
+
+    if ignore_column_order is True:
+        left = left.select(sorted(left.columns))
+        right = right.select(sorted(right.columns))
+
+    return left.equals(right)
+
+
+def create_or_alter_delta_table(table_or_uri: str | DeltaTable, schema: pl.Schema) -> DeltaTable:
+    """Retrieves a Delta table or creates a new one if it does not exist. Also updates delta table schema to the schema provided, if they differ.
+
+    Args:
+        table_or_uri: The URI of the delta table or a delta table object.
+        schema: The Polars or PyArrow schema to create the delta table with.
+
+    Returns:
+        The Delta table.
+    """
+    storage_options = get_storage_options(table_or_uri)
+
+    if isinstance(table_or_uri, DeltaTable):
+        dt = table_or_uri
+    else:
+        try:
+            dt = DeltaTable(table_or_uri, storage_options=storage_options)
+        except TableNotFoundError:
+            dt = DeltaTable.create(table_or_uri, schema, storage_options=storage_options)
+            return dt
+
+    table_schema = pl.Schema(dt.schema())
+    if schema_equals(schema, table_schema, True):
+        schema_df = pl.DataFrame(schema=schema)
+        write_deltalake(
+            table_or_uri=dt, data=schema_df, schema_mode="merge", storage_options=storage_options
+        )
 
     return dt
 
