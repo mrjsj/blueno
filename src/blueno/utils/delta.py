@@ -74,7 +74,7 @@ def create_or_alter_delta_table(table_or_uri: str | DeltaTable, schema: pl.Schem
     if schema_equals(schema, table_schema, True):
         schema_df = pl.DataFrame(schema=schema)
         write_deltalake(
-            table_or_uri=dt, data=schema_df, schema_mode="merge", storage_options=storage_options
+            table_or_uri=dt, data=schema_df, mode="append", schema_mode="merge", storage_options=storage_options
         )
 
     return dt
