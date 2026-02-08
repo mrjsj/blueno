@@ -35,6 +35,7 @@ from blueno.orchestration.job import BaseJob, JobRegistry, job_registry, track_s
 from blueno.orchestration.run_context import run_context
 from blueno.types import DataFrameType
 from blueno.utils import (
+    create_or_alter_delta_table,
     get_delta_table_if_exists,
     get_last_modified_time,
     get_max_column_value,
@@ -415,7 +416,7 @@ class Blueprint(BaseJob):
             source_df.collect_schema() if isinstance(source_df, pl.LazyFrame) else source_df.schema
         )
 
-        target_dt = self.delta_table or get_or_create_delta_table(self.table_uri, schema)
+        target_dt = create_or_alter_delta_table(self.delta_table or self.table_uri, schema)
         target_df = pl.scan_delta(target_dt)
 
         self._dataframe = apply_scd_type_2(
@@ -435,7 +436,7 @@ class Blueprint(BaseJob):
             source_df.collect_schema() if isinstance(source_df, pl.LazyFrame) else source_df.schema
         )
 
-        target_dt = self.delta_table or get_or_create_delta_table(self.table_uri, schema)
+        target_dt = create_or_alter_delta_table(self.delta_table or self.table_uri, schema)
         target_df = pl.scan_delta(target_dt)
 
         self._dataframe = apply_soft_delete_flag(
