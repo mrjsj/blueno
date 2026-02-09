@@ -55,7 +55,6 @@ class Blueprint(BaseJob):
     post_transforms: List[str]
     deduplication_order_columns: List[str]
     primary_keys: List[str]
-    partition_by: List[str]
     incremental_column: Optional[str] = None
     scd2_column: Optional[str] = None
     freshness: Optional[timedelta] = None
@@ -77,7 +76,6 @@ class Blueprint(BaseJob):
         table_uri: Optional[str] = None,
         schema: Optional[pl.Schema] = None,
         primary_keys: Optional[List[str]] = None,
-        partition_by: Optional[List[str]] = None,
         incremental_column: Optional[str] = None,
         scd2_column: Optional[str] = None,
         write_mode: str = "overwrite",
@@ -105,7 +103,6 @@ class Blueprint(BaseJob):
             table_uri: The URI of the target table. If not provided, the blueprint will not be stored as a table.
             schema: The schema of the output dataframe. If provided, transformation function will be validated against this schema.
             primary_keys: The primary keys of the target table. Is required for `upsert` `naive_upsert` and `scd2_by_column` write_mode.
-            partition_by: The columns to partition the of the target table by.
             incremental_column: The incremental column for the target table. Is required for `incremental` and `safe_append` write mode.
             scd2_column: The name of the sequence column used for SCD2. Is required for `scd2_by_column` and `scd2_by_time` write mode.
             write_mode: The write method to use. Defaults to `overwrite`.
@@ -175,7 +172,6 @@ class Blueprint(BaseJob):
             name="gold_customer",
             table_uri="/path/to/gold/customer",
             primary_keys=["customer_id", "site_id"],
-            partition_by=["year", "month", "day"],
             incremental_column="order_timestamp",
             scd2_column="modified_timestamp",
             write_mode="upsert",
@@ -216,7 +212,6 @@ class Blueprint(BaseJob):
                 table_uri=table_uri,
                 schema=schema,
                 primary_keys=primary_keys or [],
-                partition_by=partition_by or [],
                 incremental_column=incremental_column,
                 scd2_column=scd2_column,
                 write_mode=write_mode,
@@ -688,7 +683,7 @@ class Blueprint(BaseJob):
             return
 
         if self.format == "parquet":
-            write_parquet(self.table_uri, self._dataframe, partition_by=self.partition_by)
+            write_parquet(self.table_uri, self._dataframe)
             return
 
         self._write_modes.get(self.write_mode)()
