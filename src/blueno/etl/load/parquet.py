@@ -6,7 +6,7 @@ from blueno.auth import get_storage_options
 from blueno.types import DataFrameType
 
 
-def write_parquet(uri: str, df: DataFrameType, partition_by: Optional[List[str]] = None) -> None:
+def write_parquet(uri: str, df: DataFrameType) -> None:
     """Overwrites the entire parquet file or directory (if using `partition_by`) with the provided dataframe.
 
     Args:
@@ -25,12 +25,12 @@ def write_parquet(uri: str, df: DataFrameType, partition_by: Optional[List[str]]
         )
 
         # Write data partitioned by year and month
-        write_parquet(uri="path/to/parquet", df=data, partition_by=["year", "month"])
+        write_parquet(uri="path/to/parquet", df=data)
         ```
     """
     storage_options = get_storage_options(uri)
 
     if isinstance(df, pl.LazyFrame):
-        df = df.collect(engine="streaming")
-
-    df.write_parquet(file=uri, partition_by=partition_by, storage_options=storage_options)
+        df.sink_parquet(path=uri, storage_options=storage_options, engine="streaming", mkdir=True)
+    else:
+        df.write_parquet(file=uri, storage_options=storage_options, mkdir=True)
