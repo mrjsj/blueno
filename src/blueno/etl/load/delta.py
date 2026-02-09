@@ -67,7 +67,7 @@ def upsert(
 
     predicate_update_columns = [
         column
-        for column in df.columns
+        for column in schema.names()
         if (column not in key_columns + predicate_exclusion_columns + update_exclusion_columns)
         and column in target_columns
     ]
