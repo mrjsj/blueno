@@ -7,12 +7,11 @@ from blueno.types import DataFrameType
 
 
 def write_parquet(uri: str, df: DataFrameType) -> None:
-    """Overwrites the entire parquet file or directory (if using `partition_by`) with the provided dataframe.
+    """Overwrites the entire parquet file or directory with the provided dataframe.
 
     Args:
-        uri: The file or directory URI to write to. This should be a path if using `partition_by`
+        uri: The file or directory URI to write to.
         df: The dataframe to write
-        partition_by: Column(s) to partition by
 
     Example:
         ```python
