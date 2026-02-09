@@ -6,7 +6,7 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import cached_property
-from typing import Callable, Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Literal, Optional, Tuple
 
 import polars as pl
 from croniter import croniter
@@ -62,6 +62,7 @@ class Blueprint(BaseJob):
     freshness: Optional[timedelta] = None
     maintenance_schedule: Optional[str] = None
     table_properties: Optional[Dict[str, str]] = None
+    cache_mode: Optional[Literal["file", "memory"]] = None
 
     _delta_table: Optional[DeltaTable] = None
     _inputs: list[BaseJob] = field(default_factory=list)
@@ -90,6 +91,7 @@ class Blueprint(BaseJob):
         freshness: Optional[timedelta] = None,
         schedule: Optional[str] = None,
         maintenance_schedule: Optional[str] = None,
+        cache_mode: Optional[Literal["file", "memory"]] = None,
         table_properties: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
@@ -139,6 +141,11 @@ class Blueprint(BaseJob):
                 If not provided, **no maintenance** will be executed.
                 Maintenance will only run once during a cron interval. Setting this value to `* 0-8 * * 6` will run maintenance on the **first** run on Saturdays between 0 and 8.
             table_properties:  Optional table properties to set on the delta table. Table properties are created **after** the write action.
+            cache_mode: Optional caching strategy for the transformed dataframe. Options are:
+                - `file`: Caches the result to a parquet file in `{table_uri}/_blueno/cache.parquet`.
+                - `memory`: Caches the result in memory using Polars streaming engine.
+                - `None`: No caching (default).
+                Caching happens just after user-defined transformation.
             **kwargs: Additional keyword arguments to pass to the blueprint. This is used when extending the blueprint with custom attributes or methods.
 
         **Simple example**
@@ -224,6 +231,7 @@ class Blueprint(BaseJob):
                 schedule=schedule,
                 maintenance_schedule=maintenance_schedule,
                 table_properties=table_properties,
+                cache_mode=cache_mode,
                 _fn=func,
                 **kwargs,
             )
@@ -1088,6 +1096,25 @@ class Blueprint(BaseJob):
             self._dataframe = None
             self._delta_table = None
 
+    @track_step
+    def cache_dataframe(self):
+        """Caches the result of the dataframe."""
+        if self.cache_mode is None:
+            return
+
+        if self.cache_mode.lower() == "file":
+            cache_file = f"{self.table_uri.rstrip('/')}/_blueno/cache.parquet"
+            write_parquet(cache_file, self._dataframe)
+            self._dataframe = read_parquet(cache_file)
+
+        elif self.cache_mode.lower() == "memory":
+            self._dataframe.lazy().collect(engine="streaming")
+
+        else:
+            raise BluenoUserError(
+                f"`cache_mode` must be `file` or `memory` or unset. Got `{self.cache_mode}`."
+            )
+
     @override
     @track_step
     def run(self):
@@ -1097,6 +1124,7 @@ class Blueprint(BaseJob):
             return
         self.read_sources()
         self.transform()
+        self.cache_dataframe()
         self.validate_no_nulls_in_primary_keys()
         self.post_transform()
         self.validate_schema()
