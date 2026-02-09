@@ -353,7 +353,6 @@ class CustomBlueprint(Blueprint):
         write_deltalake(
             table_or_uri=self.table_uri,
             data=self._dataframe.to_arrow(),
-            partition_by=["date"],
             mode="overwrite",
             predicate=partition_predicate,
         )

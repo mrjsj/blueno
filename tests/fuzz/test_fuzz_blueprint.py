@@ -58,7 +58,6 @@ def test_blueprint_register_fuzz(
         table_uri="/tmp/fuzz" if format != "dataframe" else None,
         schema=schema,
         primary_keys=primary_keys,
-        partition_by=[],
         incremental_column=incremental_column,
         deduplication_order_columns=deduplication_order_columns,
         scd2_column=scd2_column,

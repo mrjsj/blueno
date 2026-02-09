@@ -273,7 +273,6 @@ class JobRegistry:
     #             # _transform_fn=local_vars.get("fn"),
     #             _transform_fn=wrapped_func,
     #             primary_keys=blueprint_config.get("primary_keys"),
-    #             partition_by=blueprint_config.get("partition_by"),
     #             incremental_column=blueprint_config.get("incremental_column"),
     #             valid_from_column=blueprint_config.get("valid_from_column"),
     #             valid_to_column=blueprint_config.get("valid_to_column"),

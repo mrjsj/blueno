@@ -47,7 +47,6 @@ def test_custom_blueprint():
             write_deltalake(
                 table_or_uri=self.table_uri,
                 data=self._dataframe,
-                partition_by=["date"],
                 mode="overwrite",
                 predicate=partition_predicate,
             )
