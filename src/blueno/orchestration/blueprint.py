@@ -39,7 +39,6 @@ from blueno.utils import (
     get_delta_table_if_exists,
     get_last_modified_time,
     get_max_column_value,
-    get_or_create_delta_table,
 )
 
 logger = logging.getLogger(__name__)
