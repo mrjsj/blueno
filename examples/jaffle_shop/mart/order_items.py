@@ -6,6 +6,7 @@ import polars.selectors as cs
     table_uri="jaffle_shop/mart/order_items",
     format="delta",
     primary_keys=["order_item_id"],
+    cache_mode="file",
     write_mode="naive_upsert",
     maintenance_schedule="0 0 * * *",
 )

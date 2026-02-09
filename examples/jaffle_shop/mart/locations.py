@@ -3,7 +3,8 @@ from blueno import Blueprint, DataFrameType
 
 @Blueprint.register(
     table_uri="jaffle_shop/mart/locations",
-    format="delta"
+    format="delta",
+    cache_mode="memory",
 )
 def mart_locations(stage_locations: DataFrameType):
     
