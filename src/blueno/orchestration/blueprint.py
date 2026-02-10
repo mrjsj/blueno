@@ -1102,7 +1102,7 @@ class Blueprint(BaseJob):
             self._dataframe = read_parquet(cache_file)
 
         elif self.cache_mode.lower() == "memory":
-            self._dataframe.lazy().collect(engine="streaming")
+            self._dataframe = self._dataframe.lazy().collect(engine="streaming")
 
         else:
             raise BluenoUserError(
